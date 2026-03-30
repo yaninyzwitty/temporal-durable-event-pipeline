@@ -3,6 +3,9 @@ package db
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -58,17 +61,19 @@ func WithHealthCheckPeriod(d time.Duration) PoolOption {
 
 // NewPool creates a new pgxpool.Pool using the provided configuration and options.
 func NewPool(ctx context.Context, cfg pkg.DatabaseConfig, options ...PoolOption) (*pgxpool.Pool, error) {
-	dsn := fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		cfg.User,
-		cfg.Password,
-		cfg.Host,
-		cfg.Port,
-		cfg.Name,
-		cfg.SSLMode,
-	)
+	// Construct DSN using net/url for proper encoding
+	pgURL := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(cfg.User, cfg.Password),
+		Host:   net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port)),
+		Path:   cfg.Name,
+	}
+	// Add sslmode as query parameter
+	query := url.Values{}
+	query.Add("sslmode", cfg.SSLMode)
+	pgURL.RawQuery = query.Encode()
 
-	poolConfig, err := pgxpool.ParseConfig(dsn)
+	poolConfig, err := pgxpool.ParseConfig(pgURL.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database config: %w", err)
 	}

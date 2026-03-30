@@ -4,15 +4,22 @@ import (
 	"context"
 	"flag"
 	"os"
+	"time"
 
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/db"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/shared/logger"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/shared/pkg"
 )
 
+const (
+	MAX_RETRIES = 10
+)
+
 func main() {
 
-	baseCtx := context.Background()
+	// Create a context with timeout for database connection
+	baseCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	// Initialize logger with a default environment
 	log := logger.New(logger.EnvDevelopment)
 
@@ -34,7 +41,7 @@ func main() {
 	}
 
 	// Initialize database connection pool with default options
-	pool, err := db.WaitForDB(baseCtx, dbConfig, 10, db.DefaultPoolOptions()...)
+	pool, err := db.WaitForDB(baseCtx, dbConfig, MAX_RETRIES, db.DefaultPoolOptions()...)
 	if err != nil {
 		log.Error("failed to connect to database", "error", err)
 		os.Exit(1)
