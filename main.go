@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	MAX_RETRIES = 10
+	MAX_RETRIES int = 10
 )
 
 func main() {
