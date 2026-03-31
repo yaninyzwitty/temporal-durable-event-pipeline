@@ -7,3 +7,4 @@ database:
   user: "dev"
   sslMode: "disable"
   name: "temporal_pipeline"
+  password: "dev"
