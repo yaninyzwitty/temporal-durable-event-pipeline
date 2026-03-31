@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package user.v1;
+
+option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/user/v1;userv1";
+
+import "user/v1/user.proto";
+
+service UserService {
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc GetUserByEmail(GetUserByEmailRequest) returns (GetUserByEmailResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+}

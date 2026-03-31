@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package event.v1;
+
+option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/event/v1;eventv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+message Event {
+  string id = 1;
+  string event_type = 2;
+  google.protobuf.Struct payload = 3;
+  string status = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  google.protobuf.Timestamp processed_at = 7;
+}
+
+message CreateEventRequest {
+  string event_type = 1;
+  google.protobuf.Struct payload = 2;
+}
+
+message CreateEventResponse {
+  Event event = 1;
+}
+
+message GetEventRequest {
+  string id = 1;
+}
+
+message GetEventResponse {
+  Event event = 1;
+}
+
+message PollPendingEventsRequest {
+  int32 limit = 1;
+}
+
+message PollPendingEventsResponse {
+  repeated Event events = 1;
+}
+
+message UpdateEventStatusRequest {
+  string id = 1;
+  string status = 2;
+}
+
+message UpdateEventStatusResponse {
+  Event event = 1;
+}
+
+message ListEventsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+}
+
+message ListEventsResponse {
+  repeated Event events = 1;
+}

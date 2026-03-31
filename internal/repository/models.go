@@ -5,53 +5,97 @@
 package repository
 
 import (
-	"database/sql"
-	"encoding/json"
+	"database/sql/driver"
+	"fmt"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type EventStatus string
+
+const (
+	EventStatusPending    EventStatus = "pending"
+	EventStatusProcessing EventStatus = "processing"
+	EventStatusCompleted  EventStatus = "completed"
+	EventStatusFailed     EventStatus = "failed"
+)
+
+func (e *EventStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EventStatus(s)
+	case string:
+		*e = EventStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EventStatus: %T", src)
+	}
+	return nil
+}
+
+type NullEventStatus struct {
+	EventStatus EventStatus `json:"event_status"`
+	Valid       bool        `json:"valid"` // Valid is true if EventStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEventStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.EventStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EventStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEventStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EventStatus), nil
+}
+
 type Event struct {
-	ID          uuid.UUID       `json:"id"`
-	EventType   string          `json:"event_type"`
-	Payload     json.RawMessage `json:"payload"`
-	Status      sql.NullString  `json:"status"`
-	CreatedAt   sql.NullTime    `json:"created_at"`
-	UpdatedAt   sql.NullTime    `json:"updated_at"`
-	ProcessedAt sql.NullTime    `json:"processed_at"`
+	ID          pgtype.UUID      `json:"id"`
+	EventType   string           `json:"event_type"`
+	Payload     []byte           `json:"payload"`
+	Status      NullEventStatus  `json:"status"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+	ProcessedAt pgtype.Timestamp `json:"processed_at"`
 }
 
 type Order struct {
-	ID          uuid.UUID      `json:"id"`
-	UserID      uuid.UUID      `json:"user_id"`
-	OrderDate   sql.NullTime   `json:"order_date"`
-	Status      sql.NullString `json:"status"`
-	TotalAmount string         `json:"total_amount"`
+	ID          pgtype.UUID      `json:"id"`
+	UserID      pgtype.UUID      `json:"user_id"`
+	OrderDate   pgtype.Timestamp `json:"order_date"`
+	Status      pgtype.Text      `json:"status"`
+	TotalAmount pgtype.Numeric   `json:"total_amount"`
 }
 
 type OrderItem struct {
-	ID        uuid.UUID `json:"id"`
-	OrderID   uuid.UUID `json:"order_id"`
-	ProductID uuid.UUID `json:"product_id"`
-	Quantity  int32     `json:"quantity"`
-	UnitPrice string    `json:"unit_price"`
+	ID        pgtype.UUID    `json:"id"`
+	OrderID   pgtype.UUID    `json:"order_id"`
+	ProductID pgtype.UUID    `json:"product_id"`
+	Quantity  int32          `json:"quantity"`
+	UnitPrice pgtype.Numeric `json:"unit_price"`
 }
 
 type Product struct {
-	ID            uuid.UUID      `json:"id"`
-	Name          string         `json:"name"`
-	Description   sql.NullString `json:"description"`
-	Price         string         `json:"price"`
-	StockQuantity sql.NullInt32  `json:"stock_quantity"`
-	CreatedAt     sql.NullTime   `json:"created_at"`
-	UpdatedAt     sql.NullTime   `json:"updated_at"`
+	ID            pgtype.UUID      `json:"id"`
+	Name          string           `json:"name"`
+	Description   pgtype.Text      `json:"description"`
+	Price         pgtype.Numeric   `json:"price"`
+	StockQuantity pgtype.Int4      `json:"stock_quantity"`
+	CreatedAt     pgtype.Timestamp `json:"created_at"`
+	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
 }
 
 type User struct {
-	ID           uuid.UUID    `json:"id"`
-	Username     string       `json:"username"`
-	Email        string       `json:"email"`
-	PasswordHash string       `json:"password_hash"`
-	CreatedAt    sql.NullTime `json:"created_at"`
-	UpdatedAt    sql.NullTime `json:"updated_at"`
+	ID           pgtype.UUID      `json:"id"`
+	Username     string           `json:"username"`
+	Email        string           `json:"email"`
+	PasswordHash string           `json:"password_hash"`
+	CreatedAt    pgtype.Timestamp `json:"created_at"`
+	UpdatedAt    pgtype.Timestamp `json:"updated_at"`
 }

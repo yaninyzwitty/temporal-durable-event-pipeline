@@ -7,10 +7,8 @@ package repository
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createEvent = `-- name: CreateEvent :one
@@ -24,12 +22,12 @@ INSERT INTO events (
 `
 
 type CreateEventParams struct {
-	EventType string          `json:"event_type"`
-	Payload   json.RawMessage `json:"payload"`
+	EventType string `json:"event_type"`
+	Payload   []byte `json:"payload"`
 }
 
 func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event, error) {
-	row := q.db.QueryRowContext(ctx, createEvent, arg.EventType, arg.Payload)
+	row := q.db.QueryRow(ctx, createEvent, arg.EventType, arg.Payload)
 	var i Event
 	err := row.Scan(
 		&i.ID,
@@ -56,8 +54,8 @@ FROM events
 WHERE id = $1
 `
 
-func (q *Queries) GetEventByID(ctx context.Context, id uuid.UUID) (Event, error) {
-	row := q.db.QueryRowContext(ctx, getEventByID, id)
+func (q *Queries) GetEventByID(ctx context.Context, id pgtype.UUID) (Event, error) {
+	row := q.db.QueryRow(ctx, getEventByID, id)
 	var i Event
 	err := row.Scan(
 		&i.ID,
@@ -91,7 +89,7 @@ type ListEventsParams struct {
 }
 
 func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]Event, error) {
-	rows, err := q.db.QueryContext(ctx, listEvents, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listEvents, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -111,9 +109,6 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]Event
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -138,7 +133,7 @@ LIMIT $1
 `
 
 func (q *Queries) PollPendingEvents(ctx context.Context, limit int32) ([]Event, error) {
-	rows, err := q.db.QueryContext(ctx, pollPendingEvents, limit)
+	rows, err := q.db.Query(ctx, pollPendingEvents, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -159,9 +154,6 @@ func (q *Queries) PollPendingEvents(ctx context.Context, limit int32) ([]Event, 
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -178,12 +170,12 @@ RETURNING id, event_type, payload, status, created_at, updated_at, processed_at
 `
 
 type UpdateEventStatusParams struct {
-	ID     uuid.UUID      `json:"id"`
-	Status sql.NullString `json:"status"`
+	ID     pgtype.UUID     `json:"id"`
+	Status NullEventStatus `json:"status"`
 }
 
 func (q *Queries) UpdateEventStatus(ctx context.Context, arg UpdateEventStatusParams) (Event, error) {
-	row := q.db.QueryRowContext(ctx, updateEventStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, updateEventStatus, arg.ID, arg.Status)
 	var i Event
 	err := row.Scan(
 		&i.ID,

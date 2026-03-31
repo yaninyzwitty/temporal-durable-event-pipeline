@@ -8,7 +8,7 @@ package repository
 import (
 	"context"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createOrderItem = `-- name: CreateOrderItem :one
@@ -26,14 +26,14 @@ INSERT INTO order_items (
 `
 
 type CreateOrderItemParams struct {
-	OrderID   uuid.UUID `json:"order_id"`
-	ProductID uuid.UUID `json:"product_id"`
-	Quantity  int32     `json:"quantity"`
-	UnitPrice string    `json:"unit_price"`
+	OrderID   pgtype.UUID    `json:"order_id"`
+	ProductID pgtype.UUID    `json:"product_id"`
+	Quantity  int32          `json:"quantity"`
+	UnitPrice pgtype.Numeric `json:"unit_price"`
 }
 
 func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error) {
-	row := q.db.QueryRowContext(ctx, createOrderItem,
+	row := q.db.QueryRow(ctx, createOrderItem,
 		arg.OrderID,
 		arg.ProductID,
 		arg.Quantity,
@@ -54,8 +54,8 @@ const deleteOrderItem = `-- name: DeleteOrderItem :exec
 DELETE FROM order_items WHERE id = $1
 `
 
-func (q *Queries) DeleteOrderItem(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteOrderItem, id)
+func (q *Queries) DeleteOrderItem(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteOrderItem, id)
 	return err
 }
 
@@ -70,8 +70,8 @@ FROM order_items
 WHERE order_id = $1
 `
 
-func (q *Queries) GetOrderItemsByOrderID(ctx context.Context, orderID uuid.UUID) ([]OrderItem, error) {
-	rows, err := q.db.QueryContext(ctx, getOrderItemsByOrderID, orderID)
+func (q *Queries) GetOrderItemsByOrderID(ctx context.Context, orderID pgtype.UUID) ([]OrderItem, error) {
+	rows, err := q.db.Query(ctx, getOrderItemsByOrderID, orderID)
 	if err != nil {
 		return nil, err
 	}
@@ -90,9 +90,6 @@ func (q *Queries) GetOrderItemsByOrderID(ctx context.Context, orderID uuid.UUID)
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -107,12 +104,12 @@ RETURNING id, order_id, product_id, quantity, unit_price
 `
 
 type UpdateOrderItemQuantityParams struct {
-	ID       uuid.UUID `json:"id"`
-	Quantity int32     `json:"quantity"`
+	ID       pgtype.UUID `json:"id"`
+	Quantity int32       `json:"quantity"`
 }
 
 func (q *Queries) UpdateOrderItemQuantity(ctx context.Context, arg UpdateOrderItemQuantityParams) (OrderItem, error) {
-	row := q.db.QueryRowContext(ctx, updateOrderItemQuantity, arg.ID, arg.Quantity)
+	row := q.db.QueryRow(ctx, updateOrderItemQuantity, arg.ID, arg.Quantity)
 	var i OrderItem
 	err := row.Scan(
 		&i.ID,
