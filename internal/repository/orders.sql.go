@@ -7,9 +7,8 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createOrder = `-- name: CreateOrder :one
@@ -23,12 +22,12 @@ INSERT INTO orders (
 `
 
 type CreateOrderParams struct {
-	UserID      uuid.UUID `json:"user_id"`
-	TotalAmount string    `json:"total_amount"`
+	UserID      pgtype.UUID    `json:"user_id"`
+	TotalAmount pgtype.Numeric `json:"total_amount"`
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
-	row := q.db.QueryRowContext(ctx, createOrder, arg.UserID, arg.TotalAmount)
+	row := q.db.QueryRow(ctx, createOrder, arg.UserID, arg.TotalAmount)
 	var i Order
 	err := row.Scan(
 		&i.ID,
@@ -44,8 +43,8 @@ const deleteOrder = `-- name: DeleteOrder :exec
 DELETE FROM orders WHERE id = $1
 `
 
-func (q *Queries) DeleteOrder(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteOrder, id)
+func (q *Queries) DeleteOrder(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteOrder, id)
 	return err
 }
 
@@ -60,8 +59,8 @@ FROM orders
 WHERE id = $1
 `
 
-func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (Order, error) {
-	row := q.db.QueryRowContext(ctx, getOrderByID, id)
+func (q *Queries) GetOrderByID(ctx context.Context, id pgtype.UUID) (Order, error) {
+	row := q.db.QueryRow(ctx, getOrderByID, id)
 	var i Order
 	err := row.Scan(
 		&i.ID,
@@ -85,8 +84,8 @@ WHERE user_id = $1
 ORDER BY order_date DESC
 `
 
-func (q *Queries) ListOrdersByUser(ctx context.Context, userID uuid.UUID) ([]Order, error) {
-	rows, err := q.db.QueryContext(ctx, listOrdersByUser, userID)
+func (q *Queries) ListOrdersByUser(ctx context.Context, userID pgtype.UUID) ([]Order, error) {
+	rows, err := q.db.Query(ctx, listOrdersByUser, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -105,9 +104,6 @@ func (q *Queries) ListOrdersByUser(ctx context.Context, userID uuid.UUID) ([]Ord
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -122,12 +118,12 @@ RETURNING id, user_id, order_date, status, total_amount
 `
 
 type UpdateOrderStatusParams struct {
-	ID     uuid.UUID      `json:"id"`
-	Status sql.NullString `json:"status"`
+	ID     pgtype.UUID `json:"id"`
+	Status pgtype.Text `json:"status"`
 }
 
 func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error) {
-	row := q.db.QueryRowContext(ctx, updateOrderStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, updateOrderStatus, arg.ID, arg.Status)
 	var i Order
 	err := row.Scan(
 		&i.ID,

@@ -7,7 +7,7 @@ package repository
 import (
 	"context"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -16,18 +16,18 @@ type Querier interface {
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
-	DeleteOrder(ctx context.Context, id uuid.UUID) error
-	DeleteOrderItem(ctx context.Context, id uuid.UUID) error
-	DeleteProduct(ctx context.Context, id uuid.UUID) error
-	DeleteUser(ctx context.Context, id uuid.UUID) error
-	GetEventByID(ctx context.Context, id uuid.UUID) (Event, error)
-	GetOrderByID(ctx context.Context, id uuid.UUID) (Order, error)
-	GetOrderItemsByOrderID(ctx context.Context, orderID uuid.UUID) ([]OrderItem, error)
-	GetProductByID(ctx context.Context, id uuid.UUID) (Product, error)
+	DeleteOrder(ctx context.Context, id pgtype.UUID) error
+	DeleteOrderItem(ctx context.Context, id pgtype.UUID) error
+	DeleteProduct(ctx context.Context, id pgtype.UUID) error
+	DeleteUser(ctx context.Context, id pgtype.UUID) error
+	GetEventByID(ctx context.Context, id pgtype.UUID) (Event, error)
+	GetOrderByID(ctx context.Context, id pgtype.UUID) (Order, error)
+	GetOrderItemsByOrderID(ctx context.Context, orderID pgtype.UUID) ([]OrderItem, error)
+	GetProductByID(ctx context.Context, id pgtype.UUID) (Product, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
-	GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error)
+	GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error)
 	ListEvents(ctx context.Context, arg ListEventsParams) ([]Event, error)
-	ListOrdersByUser(ctx context.Context, userID uuid.UUID) ([]Order, error)
+	ListOrdersByUser(ctx context.Context, userID pgtype.UUID) ([]Order, error)
 	ListProducts(ctx context.Context) ([]Product, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
 	PollPendingEvents(ctx context.Context, limit int32) ([]Event, error)

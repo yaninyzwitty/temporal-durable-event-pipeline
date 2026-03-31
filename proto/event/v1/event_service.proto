@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package event.v1;
+
+option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/proto/event/v1;eventv1";
+
+import "event/v1/event.proto";
+
+service EventService {
+  rpc CreateEvent(CreateEventRequest) returns (CreateEventResponse);
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse);
+  rpc PollPendingEvents(PollPendingEventsRequest) returns (PollPendingEventsResponse);
+  rpc UpdateEventStatus(UpdateEventStatusRequest) returns (UpdateEventStatusResponse);
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+}

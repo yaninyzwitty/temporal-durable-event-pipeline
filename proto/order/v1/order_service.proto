@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package order.v1;
+
+option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/proto/order/v1;orderv1";
+
+import "order/v1/order.proto";
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+  rpc ListOrdersByUser(ListOrdersByUserRequest) returns (ListOrdersByUserResponse);
+  rpc UpdateOrderStatus(UpdateOrderStatusRequest) returns (UpdateOrderStatusResponse);
+  rpc DeleteOrder(DeleteOrderRequest) returns (DeleteOrderResponse);
+
+  rpc CreateOrderItem(CreateOrderItemRequest) returns (CreateOrderItemResponse);
+  rpc GetOrderItems(GetOrderItemsRequest) returns (GetOrderItemsResponse);
+  rpc UpdateOrderItemQuantity(UpdateOrderItemQuantityRequest) returns (UpdateOrderItemQuantityResponse);
+  rpc DeleteOrderItem(DeleteOrderItemRequest) returns (DeleteOrderItemResponse);
+}

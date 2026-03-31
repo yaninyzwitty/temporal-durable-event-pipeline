@@ -7,9 +7,8 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createProduct = `-- name: CreateProduct :one
@@ -28,13 +27,13 @@ INSERT INTO products (
 
 type CreateProductParams struct {
 	Name          string         `json:"name"`
-	Description   sql.NullString `json:"description"`
-	Price         string         `json:"price"`
-	StockQuantity sql.NullInt32  `json:"stock_quantity"`
+	Description   pgtype.Text    `json:"description"`
+	Price         pgtype.Numeric `json:"price"`
+	StockQuantity pgtype.Int4    `json:"stock_quantity"`
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
-	row := q.db.QueryRowContext(ctx, createProduct,
+	row := q.db.QueryRow(ctx, createProduct,
 		arg.Name,
 		arg.Description,
 		arg.Price,
@@ -57,8 +56,8 @@ const deleteProduct = `-- name: DeleteProduct :exec
 DELETE FROM products WHERE id = $1
 `
 
-func (q *Queries) DeleteProduct(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteProduct, id)
+func (q *Queries) DeleteProduct(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteProduct, id)
 	return err
 }
 
@@ -75,8 +74,8 @@ FROM products
 WHERE id = $1
 `
 
-func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (Product, error) {
-	row := q.db.QueryRowContext(ctx, getProductByID, id)
+func (q *Queries) GetProductByID(ctx context.Context, id pgtype.UUID) (Product, error) {
+	row := q.db.QueryRow(ctx, getProductByID, id)
 	var i Product
 	err := row.Scan(
 		&i.ID,
@@ -104,7 +103,7 @@ ORDER BY created_at DESC
 `
 
 func (q *Queries) ListProducts(ctx context.Context) ([]Product, error) {
-	rows, err := q.db.QueryContext(ctx, listProducts)
+	rows, err := q.db.Query(ctx, listProducts)
 	if err != nil {
 		return nil, err
 	}
@@ -125,9 +124,6 @@ func (q *Queries) ListProducts(ctx context.Context) ([]Product, error) {
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -146,15 +142,15 @@ RETURNING id, name, description, price, stock_quantity, created_at, updated_at
 `
 
 type UpdateProductParams struct {
-	ID            uuid.UUID      `json:"id"`
+	ID            pgtype.UUID    `json:"id"`
 	Name          string         `json:"name"`
-	Description   sql.NullString `json:"description"`
-	Price         string         `json:"price"`
-	StockQuantity sql.NullInt32  `json:"stock_quantity"`
+	Description   pgtype.Text    `json:"description"`
+	Price         pgtype.Numeric `json:"price"`
+	StockQuantity pgtype.Int4    `json:"stock_quantity"`
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error) {
-	row := q.db.QueryRowContext(ctx, updateProduct,
+	row := q.db.QueryRow(ctx, updateProduct,
 		arg.ID,
 		arg.Name,
 		arg.Description,

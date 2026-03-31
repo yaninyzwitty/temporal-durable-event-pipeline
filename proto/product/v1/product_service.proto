@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package product.v1;
+
+option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/proto/product/v1;productv1";
+
+import "product/v1/product.proto";
+
+service ProductService {
+  rpc CreateProduct(CreateProductRequest) returns (CreateProductResponse);
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse);
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
+  rpc UpdateProduct(UpdateProductRequest) returns (UpdateProductResponse);
+  rpc DeleteProduct(DeleteProductRequest) returns (DeleteProductResponse);
+}

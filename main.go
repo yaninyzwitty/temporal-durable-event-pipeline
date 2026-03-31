@@ -47,7 +47,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
-	log.Info("successfully connected to database")
 
 }
 
