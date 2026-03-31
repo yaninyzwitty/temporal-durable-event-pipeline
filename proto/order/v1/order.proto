@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package order.v1;
 
-option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/proto/order/v1;orderv1";
+option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/order/v1;orderv1";
 
 import "google/protobuf/timestamp.proto";
 
@@ -11,7 +11,7 @@ message Order {
   string user_id = 2;
   google.protobuf.Timestamp order_date = 3;
   string status = 4;
-  double total_amount = 5;
+  string total_amount = 5;
 }
 
 message OrderItem {
@@ -19,12 +19,12 @@ message OrderItem {
   string order_id = 2;
   string product_id = 3;
   int32 quantity = 4;
-  double unit_price = 5;
+  string unit_price = 5;
 }
 
 message CreateOrderRequest {
   string user_id = 1;
-  double total_amount = 2;
+  string total_amount = 2;
 }
 
 message CreateOrderResponse {
@@ -66,7 +66,7 @@ message CreateOrderItemRequest {
   string order_id = 1;
   string product_id = 2;
   int32 quantity = 3;
-  double unit_price = 4;
+  string unit_price = 4;
 }
 
 message CreateOrderItemResponse {

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package product.v1;
 
-option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/proto/product/v1;productv1";
+option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/product/v1;productv1";
 
 import "google/protobuf/timestamp.proto";
 
@@ -10,7 +10,7 @@ message Product {
   string id = 1;
   string name = 2;
   string description = 3;
-  double price = 4;
+  string price = 4;
   int32 stock_quantity = 5;
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp updated_at = 7;
@@ -19,7 +19,7 @@ message Product {
 message CreateProductRequest {
   string name = 1;
   string description = 2;
-  double price = 3;
+  string price = 3;
   int32 stock_quantity = 4;
 }
 
@@ -45,7 +45,7 @@ message UpdateProductRequest {
   string id = 1;
   string name = 2;
   string description = 3;
-  double price = 4;
+  string price = 4;
   int32 stock_quantity = 5;
 }
 

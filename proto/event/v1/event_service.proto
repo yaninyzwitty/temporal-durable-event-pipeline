@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package event.v1;
 
-option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/proto/event/v1;eventv1";
+option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/event/v1;eventv1";
 
 import "event/v1/event.proto";
 

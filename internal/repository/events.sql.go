@@ -170,8 +170,8 @@ RETURNING id, event_type, payload, status, created_at, updated_at, processed_at
 `
 
 type UpdateEventStatusParams struct {
-	ID     pgtype.UUID `json:"id"`
-	Status pgtype.Text `json:"status"`
+	ID     pgtype.UUID     `json:"id"`
+	Status NullEventStatus `json:"status"`
 }
 
 func (q *Queries) UpdateEventStatus(ctx context.Context, arg UpdateEventStatusParams) (Event, error) {

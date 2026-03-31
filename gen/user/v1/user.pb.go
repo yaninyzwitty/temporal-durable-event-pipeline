@@ -337,7 +337,6 @@ func (x *GetUserByEmailRequest) GetEmail() string {
 type GetUserByEmailResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
-	PasswordHash  string                 `protobuf:"bytes,2,opt,name=password_hash,json=passwordHash,proto3" json:"password_hash,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -377,13 +376,6 @@ func (x *GetUserByEmailResponse) GetUser() *User {
 		return x.User
 	}
 	return nil
-}
-
-func (x *GetUserByEmailResponse) GetPasswordHash() string {
-	if x != nil {
-		return x.PasswordHash
-	}
-	return ""
 }
 
 type ListUsersRequest struct {
@@ -674,10 +666,9 @@ const file_user_v1_user_proto_rawDesc = "" +
 	"\x0fGetUserResponse\x12!\n" +
 	"\x04user\x18\x01 \x01(\v2\r.user.v1.UserR\x04user\"-\n" +
 	"\x15GetUserByEmailRequest\x12\x14\n" +
-	"\x05email\x18\x01 \x01(\tR\x05email\"`\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\";\n" +
 	"\x16GetUserByEmailResponse\x12!\n" +
-	"\x04user\x18\x01 \x01(\v2\r.user.v1.UserR\x04user\x12#\n" +
-	"\rpassword_hash\x18\x02 \x01(\tR\fpasswordHash\"\x12\n" +
+	"\x04user\x18\x01 \x01(\v2\r.user.v1.UserR\x04user\"\x12\n" +
 	"\x10ListUsersRequest\"8\n" +
 	"\x11ListUsersResponse\x12#\n" +
 	"\x05users\x18\x01 \x03(\v2\r.user.v1.UserR\x05users\"U\n" +

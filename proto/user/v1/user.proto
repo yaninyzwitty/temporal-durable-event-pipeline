@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package user.v1;
 
-option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/proto/user/v1;userv1";
+option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen/user/v1;userv1";
 
 import "google/protobuf/timestamp.proto";
 
@@ -38,7 +38,6 @@ message GetUserByEmailRequest {
 
 message GetUserByEmailResponse {
   User user = 1;
-  string password_hash = 2;
 }
 
 message ListUsersRequest {}

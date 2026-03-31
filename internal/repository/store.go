@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -19,21 +20,21 @@ type Store interface {
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 
 	// Product
-	CreateProduct(ctx context.Context, name string, description pgtype.Text, price pgtype.Numeric, stockQuantity pgtype.Int4) (Product, error)
+	CreateProduct(ctx context.Context, name string, description pgtype.Text, price string, stockQuantity pgtype.Int4) (Product, error)
 	GetProductByID(ctx context.Context, id uuid.UUID) (Product, error)
 	ListProducts(ctx context.Context) ([]Product, error)
-	UpdateProduct(ctx context.Context, id uuid.UUID, name string, description pgtype.Text, price pgtype.Numeric, stockQuantity pgtype.Int4) (Product, error)
+	UpdateProduct(ctx context.Context, id uuid.UUID, name string, description pgtype.Text, price string, stockQuantity pgtype.Int4) (Product, error)
 	DeleteProduct(ctx context.Context, id uuid.UUID) error
 
 	// Order
-	CreateOrder(ctx context.Context, userID uuid.UUID, totalAmount pgtype.Numeric) (Order, error)
+	CreateOrder(ctx context.Context, userID uuid.UUID, totalAmount string) (Order, error)
 	GetOrderByID(ctx context.Context, id uuid.UUID) (Order, error)
 	ListOrdersByUser(ctx context.Context, userID uuid.UUID) ([]Order, error)
 	UpdateOrderStatus(ctx context.Context, id uuid.UUID, status pgtype.Text) (Order, error)
 	DeleteOrder(ctx context.Context, id uuid.UUID) error
 
 	// Order Item
-	CreateOrderItem(ctx context.Context, orderID, productID uuid.UUID, quantity int32, unitPrice pgtype.Numeric) (OrderItem, error)
+	CreateOrderItem(ctx context.Context, orderID, productID uuid.UUID, quantity int32, unitPrice string) (OrderItem, error)
 	GetOrderItemsByOrderID(ctx context.Context, orderID uuid.UUID) ([]OrderItem, error)
 	UpdateOrderItemQuantity(ctx context.Context, id uuid.UUID, quantity int32) (OrderItem, error)
 	DeleteOrderItem(ctx context.Context, id uuid.UUID) error
@@ -42,7 +43,7 @@ type Store interface {
 	CreateEvent(ctx context.Context, eventType string, payload json.RawMessage) (Event, error)
 	GetEventByID(ctx context.Context, id uuid.UUID) (Event, error)
 	PollPendingEvents(ctx context.Context, limit int32) ([]Event, error)
-	UpdateEventStatus(ctx context.Context, id uuid.UUID, status pgtype.Text) (Event, error)
+	UpdateEventStatus(ctx context.Context, id uuid.UUID, status EventStatus) (Event, error)
 	ListEvents(ctx context.Context, limit, offset int32) ([]Event, error)
 
 	// Transaction
@@ -89,6 +90,14 @@ func toPgUUID(id uuid.UUID) pgtype.UUID {
 	}
 }
 
+func toPgNumeric(s string) (pgtype.Numeric, error) {
+	var n pgtype.Numeric
+	if err := n.Scan(s); err != nil {
+		return pgtype.Numeric{}, fmt.Errorf("invalid numeric value %q: %w", s, err)
+	}
+	return n, nil
+}
+
 // --- User ---
 
 func (s *store) CreateUser(ctx context.Context, username, email, passwordHash string) (CreateUserRow, error) {
@@ -125,11 +134,15 @@ func (s *store) DeleteUser(ctx context.Context, id uuid.UUID) error {
 
 // --- Product ---
 
-func (s *store) CreateProduct(ctx context.Context, name string, description pgtype.Text, price pgtype.Numeric, stockQuantity pgtype.Int4) (Product, error) {
+func (s *store) CreateProduct(ctx context.Context, name string, description pgtype.Text, price string, stockQuantity pgtype.Int4) (Product, error) {
+	numericPrice, err := toPgNumeric(price)
+	if err != nil {
+		return Product{}, err
+	}
 	return s.Queries.CreateProduct(ctx, CreateProductParams{
 		Name:          name,
 		Description:   description,
-		Price:         price,
+		Price:         numericPrice,
 		StockQuantity: stockQuantity,
 	})
 }
@@ -142,12 +155,16 @@ func (s *store) ListProducts(ctx context.Context) ([]Product, error) {
 	return s.Queries.ListProducts(ctx)
 }
 
-func (s *store) UpdateProduct(ctx context.Context, id uuid.UUID, name string, description pgtype.Text, price pgtype.Numeric, stockQuantity pgtype.Int4) (Product, error) {
+func (s *store) UpdateProduct(ctx context.Context, id uuid.UUID, name string, description pgtype.Text, price string, stockQuantity pgtype.Int4) (Product, error) {
+	numericPrice, err := toPgNumeric(price)
+	if err != nil {
+		return Product{}, err
+	}
 	return s.Queries.UpdateProduct(ctx, UpdateProductParams{
 		ID:            toPgUUID(id),
 		Name:          name,
 		Description:   description,
-		Price:         price,
+		Price:         numericPrice,
 		StockQuantity: stockQuantity,
 	})
 }
@@ -158,10 +175,14 @@ func (s *store) DeleteProduct(ctx context.Context, id uuid.UUID) error {
 
 // --- Order ---
 
-func (s *store) CreateOrder(ctx context.Context, userID uuid.UUID, totalAmount pgtype.Numeric) (Order, error) {
+func (s *store) CreateOrder(ctx context.Context, userID uuid.UUID, totalAmount string) (Order, error) {
+	numericTotal, err := toPgNumeric(totalAmount)
+	if err != nil {
+		return Order{}, err
+	}
 	return s.Queries.CreateOrder(ctx, CreateOrderParams{
 		UserID:      toPgUUID(userID),
-		TotalAmount: totalAmount,
+		TotalAmount: numericTotal,
 	})
 }
 
@@ -186,12 +207,16 @@ func (s *store) DeleteOrder(ctx context.Context, id uuid.UUID) error {
 
 // --- Order Item ---
 
-func (s *store) CreateOrderItem(ctx context.Context, orderID, productID uuid.UUID, quantity int32, unitPrice pgtype.Numeric) (OrderItem, error) {
+func (s *store) CreateOrderItem(ctx context.Context, orderID, productID uuid.UUID, quantity int32, unitPrice string) (OrderItem, error) {
+	numericPrice, err := toPgNumeric(unitPrice)
+	if err != nil {
+		return OrderItem{}, err
+	}
 	return s.Queries.CreateOrderItem(ctx, CreateOrderItemParams{
 		OrderID:   toPgUUID(orderID),
 		ProductID: toPgUUID(productID),
 		Quantity:  quantity,
-		UnitPrice: unitPrice,
+		UnitPrice: numericPrice,
 	})
 }
 
@@ -227,10 +252,15 @@ func (s *store) PollPendingEvents(ctx context.Context, limit int32) ([]Event, er
 	return s.Queries.PollPendingEvents(ctx, limit)
 }
 
-func (s *store) UpdateEventStatus(ctx context.Context, id uuid.UUID, status pgtype.Text) (Event, error) {
+func (s *store) UpdateEventStatus(ctx context.Context, id uuid.UUID, status EventStatus) (Event, error) {
+	switch status {
+	case EventStatusPending, EventStatusProcessing, EventStatusCompleted, EventStatusFailed:
+	default:
+		return Event{}, fmt.Errorf("invalid event status: %q", status)
+	}
 	return s.Queries.UpdateEventStatus(ctx, UpdateEventStatusParams{
 		ID:     toPgUUID(id),
-		Status: status,
+		Status: NullEventStatus{EventStatus: status, Valid: true},
 	})
 }
 
