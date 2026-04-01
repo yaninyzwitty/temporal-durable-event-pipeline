@@ -1,0 +1,14 @@
+.git
+.github
+.env
+.env*
+*.env
+*.md
+buf.yaml
+buf.gen.yaml
+sqlc.yaml
+compose.yaml
+Dockerfile
+.dockerignore
+proto/
+db/queries/
