@@ -24,7 +24,7 @@ type Server struct {
 	logger     *slog.Logger
 }
 
-func New(port int, store *repository.Store, logger *slog.Logger, opts ...grpc.ServerOption) *Server {
+func New(port int, store *repository.Store, env string, logger *slog.Logger, opts ...grpc.ServerOption) *Server {
 	grpcServer := grpc.NewServer(opts...)
 
 	userv1.RegisterUserServiceServer(grpcServer, handler.NewUserHandler(store, logger))
@@ -35,7 +35,15 @@ func New(port int, store *repository.Store, logger *slog.Logger, opts ...grpc.Se
 	healthServer := health.NewServer()
 	healthpb.RegisterHealthServer(grpcServer, healthServer)
 
-	reflection.Register(grpcServer)
+	healthServer.SetServingStatus(userv1.UserService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus(productv1.ProductService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus(orderv1.OrderService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus(eventv1.EventService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+
+	if env == "development" {
+		reflection.Register(grpcServer)
+		logger.Info("gRPC reflection enabled")
+	}
 
 	return &Server{
 		grpcServer: grpcServer,

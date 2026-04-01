@@ -2,9 +2,11 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
 	"google.golang.org/grpc/codes"
@@ -58,8 +60,11 @@ func (h *ProductHandler) GetProduct(ctx context.Context, req *productv1.GetProdu
 
 	product, err := h.store.GetProductByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "product not found")
+		}
 		h.logger.Error("failed to get product", "error", err, "id", req.GetId())
-		return nil, status.Error(codes.NotFound, "product not found")
+		return nil, status.Error(codes.Internal, "internal error")
 	}
 
 	return &productv1.GetProductResponse{
@@ -92,8 +97,9 @@ func (h *ProductHandler) UpdateProduct(ctx context.Context, req *productv1.Updat
 	}
 
 	description := pgtype.Text{String: req.GetDescription(), Valid: req.GetDescription() != ""}
-	stockQuantity := pgtype.Int4{Int32: req.GetStockQuantity(), Valid: true}
 
+	// For now, treat 0 as "not provided" - consider using google.protobuf.Int32Value for optional semantics
+	stockQuantity := pgtype.Int4{Int32: req.GetStockQuantity(), Valid: req.GetStockQuantity() != 0}
 	product, err := h.store.UpdateProduct(ctx, id, req.GetName(), description, req.GetPrice(), stockQuantity)
 	if err != nil {
 		h.logger.Error("failed to update product", "error", err, "id", req.GetId())

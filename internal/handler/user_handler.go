@@ -2,10 +2,13 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -36,7 +39,13 @@ func (h *UserHandler) CreateUser(ctx context.Context, req *userv1.CreateUserRequ
 		return nil, status.Error(codes.InvalidArgument, "username, email, and password are required")
 	}
 
-	row, err := h.store.CreateUser(ctx, req.GetUsername(), req.GetEmail(), req.GetPassword())
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.GetPassword()), bcrypt.DefaultCost)
+	if err != nil {
+		h.logger.Error("failed to hash password", "error", err)
+		return nil, status.Error(codes.Internal, "internal error")
+	}
+
+	row, err := h.store.CreateUser(ctx, req.GetUsername(), req.GetEmail(), string(hashedPassword))
 	if err != nil {
 		h.logger.Error("failed to create user", "error", err)
 		return nil, status.Error(codes.Internal, "failed to create user")
@@ -55,8 +64,11 @@ func (h *UserHandler) GetUser(ctx context.Context, req *userv1.GetUserRequest) (
 
 	row, err := h.store.GetUserByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
 		h.logger.Error("failed to get user", "error", err, "id", req.GetId())
-		return nil, status.Error(codes.NotFound, "user not found")
+		return nil, status.Error(codes.Internal, "failed to get user")
 	}
 
 	return &userv1.GetUserResponse{
@@ -71,8 +83,11 @@ func (h *UserHandler) GetUserByEmail(ctx context.Context, req *userv1.GetUserByE
 
 	user, err := h.store.GetUserByEmail(ctx, req.GetEmail())
 	if err != nil {
-		h.logger.Error("failed to get user by email", "error", err, "email", req.GetEmail())
-		return nil, status.Error(codes.NotFound, "user not found")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		h.logger.Error("failed to get user by email", "error", err)
+		return nil, status.Error(codes.Internal, "internal error")
 	}
 
 	return &userv1.GetUserByEmailResponse{

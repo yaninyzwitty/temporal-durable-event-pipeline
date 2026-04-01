@@ -44,7 +44,11 @@ func pgNumericToString(n pgtype.Numeric) string {
 	if s == nil {
 		return "0"
 	}
-	return s.(string)
+	str, ok := s.(string)
+	if !ok {
+		return "0"
+	}
+	return str
 }
 
 func pgInt4ToInt32(i pgtype.Int4) int32 {

@@ -2,9 +2,11 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
 	"google.golang.org/grpc/codes"
@@ -63,8 +65,11 @@ func (h *OrderHandler) GetOrder(ctx context.Context, req *orderv1.GetOrderReques
 
 	order, err := h.store.GetOrderByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "order not found")
+		}
 		h.logger.Error("failed to get order", "error", err, "id", req.GetId())
-		return nil, status.Error(codes.NotFound, "order not found")
+		return nil, status.Error(codes.Internal, "internal error")
 	}
 
 	return &orderv1.GetOrderResponse{
@@ -138,6 +143,10 @@ func (h *OrderHandler) CreateOrderItem(ctx context.Context, req *orderv1.CreateO
 	}
 	if req.GetUnitPrice() == "" {
 		return nil, status.Error(codes.InvalidArgument, "unit_price is required")
+	}
+
+	if req.GetQuantity() <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "quantity must be greater than 0")
 	}
 
 	item, err := h.store.CreateOrderItem(ctx, orderID, productID, req.GetQuantity(), req.GetUnitPrice())

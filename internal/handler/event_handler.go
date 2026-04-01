@@ -2,9 +2,11 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -71,8 +73,11 @@ func (h *EventHandler) GetEvent(ctx context.Context, req *eventv1.GetEventReques
 
 	event, err := h.store.GetEventByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "event not found")
+		}
 		h.logger.Error("failed to get event", "error", err, "id", req.GetId())
-		return nil, status.Error(codes.NotFound, "event not found")
+		return nil, status.Error(codes.Internal, "internal error")
 	}
 
 	protoEvent, err := eventToProto(event)
@@ -102,8 +107,8 @@ func (h *EventHandler) PollPendingEvents(ctx context.Context, req *eventv1.PollP
 	for _, e := range events {
 		protoEvent, err := eventToProto(e)
 		if err != nil {
-			h.logger.Error("failed to convert event", "error", err)
-			continue
+			h.logger.Error("failed to convert event", "error", err, "event_id", pgUUIDToString(e.ID))
+			return nil, status.Errorf(codes.Internal, "failed to convert event %s: %v", pgUUIDToString(e.ID), err)
 		}
 		result = append(result, protoEvent)
 	}
@@ -121,6 +126,12 @@ func (h *EventHandler) UpdateEventStatus(ctx context.Context, req *eventv1.Updat
 	}
 
 	statusVal := repository.EventStatus(req.GetStatus())
+	switch statusVal {
+	case repository.EventStatusPending, repository.EventStatusProcessing, repository.EventStatusCompleted, repository.EventStatusFailed:
+		// valid status
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid status value; must be one of PENDING, PROCESSING, COMPLETED, FAILED")
+	}
 	event, err := h.store.UpdateEventStatus(ctx, id, statusVal)
 	if err != nil {
 		h.logger.Error("failed to update event status", "error", err, "id", req.GetId())
@@ -154,8 +165,8 @@ func (h *EventHandler) ListEvents(ctx context.Context, req *eventv1.ListEventsRe
 	for _, e := range events {
 		protoEvent, err := eventToProto(e)
 		if err != nil {
-			h.logger.Error("failed to convert event", "error", err)
-			continue
+			h.logger.Error("failed to convert event", "error", err, "event_id", pgUUIDToString(e.ID))
+			return nil, status.Errorf(codes.Internal, "failed to convert event %s: %v", pgUUIDToString(e.ID), err)
 		}
 		result = append(result, protoEvent)
 	}

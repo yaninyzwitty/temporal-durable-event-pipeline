@@ -51,7 +51,7 @@ func main() {
 	defer pool.Close()
 
 	store := repository.NewStore(pool)
-	srv := server.New(config.ServerConfig.Port, store, log)
+	srv := server.New(config.ServerConfig.Port, store, config.ServerConfig.Env, log)
 
 	lis, err := srv.Start()
 	if err != nil {
@@ -65,7 +65,19 @@ func main() {
 	<-quit
 
 	log.Info("received shutdown signal")
-	srv.GracefulStop()
+	done := make(chan struct{})
+	go func() {
+		srv.GracefulStop()
+		close(done)
+
+	}()
+	select {
+	case <-done:
+		log.Info("server stopped gracefully")
+	case <-time.After(30 * time.Second):
+		log.Warn("graceful shutdown timed out, forcing exit")
+		srv.Stop()
+	}
 	log.Info("server stopped")
 }
 
