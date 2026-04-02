@@ -140,6 +140,36 @@ func orderItemToProto(oi repository.OrderItem) *orderv1.OrderItem {
 	}
 }
 
+func eventStatusToProto(s repository.EventStatus) eventv1.EventStatus {
+	switch s {
+	case repository.EventStatusPending:
+		return eventv1.EventStatus_EVENT_STATUS_PENDING
+	case repository.EventStatusProcessing:
+		return eventv1.EventStatus_EVENT_STATUS_PROCESSING
+	case repository.EventStatusCompleted:
+		return eventv1.EventStatus_EVENT_STATUS_COMPLETED
+	case repository.EventStatusFailed:
+		return eventv1.EventStatus_EVENT_STATUS_FAILED
+	default:
+		return eventv1.EventStatus_EVENT_STATUS_UNSPECIFIED
+	}
+}
+
+func eventStatusFromProto(s eventv1.EventStatus) repository.EventStatus {
+	switch s {
+	case eventv1.EventStatus_EVENT_STATUS_PENDING:
+		return repository.EventStatusPending
+	case eventv1.EventStatus_EVENT_STATUS_PROCESSING:
+		return repository.EventStatusProcessing
+	case eventv1.EventStatus_EVENT_STATUS_COMPLETED:
+		return repository.EventStatusCompleted
+	case eventv1.EventStatus_EVENT_STATUS_FAILED:
+		return repository.EventStatusFailed
+	default:
+		return ""
+	}
+}
+
 func eventToProto(e repository.Event) (*eventv1.Event, error) {
 	var payload *structpb.Struct
 	if len(e.Payload) > 0 {
@@ -149,16 +179,16 @@ func eventToProto(e repository.Event) (*eventv1.Event, error) {
 		}
 	}
 
-	status := ""
+	status := eventv1.EventStatus_EVENT_STATUS_UNSPECIFIED
 	if e.Status.Valid {
-		status = string(e.Status.EventStatus)
+		status = eventStatusToProto(e.Status.EventStatus)
 	}
 
 	return &eventv1.Event{
 		Id:          pgUUIDToString(e.ID),
 		EventType:   e.EventType,
 		Payload:     payload,
-		Status:      status,
+		StatusV2:    status,
 		CreatedAt:   pgTimestampToProto(e.CreatedAt),
 		UpdatedAt:   pgTimestampToProto(e.UpdatedAt),
 		ProcessedAt: pgTimestampToProto(e.ProcessedAt),

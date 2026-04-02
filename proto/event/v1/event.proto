@@ -7,11 +7,20 @@ option go_package = "github.com/yaninyzwitty/temporal-durable-event-pipeline/gen
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
 
+enum EventStatus {
+  EVENT_STATUS_UNSPECIFIED = 0;
+  EVENT_STATUS_PENDING = 1;
+  EVENT_STATUS_PROCESSING = 2;
+  EVENT_STATUS_COMPLETED = 3;
+  EVENT_STATUS_FAILED = 4;
+}
+
 message Event {
   string id = 1;
   string event_type = 2;
   google.protobuf.Struct payload = 3;
-  string status = 4;
+  string status = 4 [deprecated = true];
+  EventStatus status_v2 = 8;
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp updated_at = 6;
   google.protobuf.Timestamp processed_at = 7;
@@ -44,7 +53,8 @@ message PollPendingEventsResponse {
 
 message UpdateEventStatusRequest {
   string id = 1;
-  string status = 2;
+  string status = 2 [deprecated = true];
+  EventStatus status_v2 = 3;
 }
 
 message UpdateEventStatusResponse {
