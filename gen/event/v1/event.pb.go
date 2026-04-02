@@ -23,12 +23,67 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type EventStatus int32
+
+const (
+	EventStatus_EVENT_STATUS_UNSPECIFIED EventStatus = 0
+	EventStatus_EVENT_STATUS_PENDING     EventStatus = 1
+	EventStatus_EVENT_STATUS_PROCESSING  EventStatus = 2
+	EventStatus_EVENT_STATUS_COMPLETED   EventStatus = 3
+	EventStatus_EVENT_STATUS_FAILED      EventStatus = 4
+)
+
+// Enum value maps for EventStatus.
+var (
+	EventStatus_name = map[int32]string{
+		0: "EVENT_STATUS_UNSPECIFIED",
+		1: "EVENT_STATUS_PENDING",
+		2: "EVENT_STATUS_PROCESSING",
+		3: "EVENT_STATUS_COMPLETED",
+		4: "EVENT_STATUS_FAILED",
+	}
+	EventStatus_value = map[string]int32{
+		"EVENT_STATUS_UNSPECIFIED": 0,
+		"EVENT_STATUS_PENDING":     1,
+		"EVENT_STATUS_PROCESSING":  2,
+		"EVENT_STATUS_COMPLETED":   3,
+		"EVENT_STATUS_FAILED":      4,
+	}
+)
+
+func (x EventStatus) Enum() *EventStatus {
+	p := new(EventStatus)
+	*p = x
+	return p
+}
+
+func (x EventStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EventStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_event_v1_event_proto_enumTypes[0].Descriptor()
+}
+
+func (EventStatus) Type() protoreflect.EnumType {
+	return &file_event_v1_event_proto_enumTypes[0]
+}
+
+func (x EventStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use EventStatus.Descriptor instead.
+func (EventStatus) EnumDescriptor() ([]byte, []int) {
+	return file_event_v1_event_proto_rawDescGZIP(), []int{0}
+}
+
 type Event struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	EventType     string                 `protobuf:"bytes,2,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
 	Payload       *structpb.Struct       `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Status        EventStatus            `protobuf:"varint,4,opt,name=status,proto3,enum=event.v1.EventStatus" json:"status,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	ProcessedAt   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=processed_at,json=processedAt,proto3" json:"processed_at,omitempty"`
@@ -87,11 +142,11 @@ func (x *Event) GetPayload() *structpb.Struct {
 	return nil
 }
 
-func (x *Event) GetStatus() string {
+func (x *Event) GetStatus() EventStatus {
 	if x != nil {
 		return x.Status
 	}
-	return ""
+	return EventStatus_EVENT_STATUS_UNSPECIFIED
 }
 
 func (x *Event) GetCreatedAt() *timestamppb.Timestamp {
@@ -390,7 +445,7 @@ func (x *PollPendingEventsResponse) GetEvents() []*Event {
 type UpdateEventStatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Status        EventStatus            `protobuf:"varint,2,opt,name=status,proto3,enum=event.v1.EventStatus" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -432,11 +487,11 @@ func (x *UpdateEventStatusRequest) GetId() string {
 	return ""
 }
 
-func (x *UpdateEventStatusRequest) GetStatus() string {
+func (x *UpdateEventStatusRequest) GetStatus() EventStatus {
 	if x != nil {
 		return x.Status
 	}
-	return ""
+	return EventStatus_EVENT_STATUS_UNSPECIFIED
 }
 
 type UpdateEventStatusResponse struct {
@@ -583,13 +638,13 @@ var File_event_v1_event_proto protoreflect.FileDescriptor
 
 const file_event_v1_event_proto_rawDesc = "" +
 	"\n" +
-	"\x14event/v1/event.proto\x12\bevent.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xb6\x02\n" +
+	"\x14event/v1/event.proto\x12\bevent.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xcd\x02\n" +
 	"\x05Event\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
 	"event_type\x18\x02 \x01(\tR\teventType\x121\n" +
-	"\apayload\x18\x03 \x01(\v2\x17.google.protobuf.StructR\apayload\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\tR\x06status\x129\n" +
+	"\apayload\x18\x03 \x01(\v2\x17.google.protobuf.StructR\apayload\x12-\n" +
+	"\x06status\x18\x04 \x01(\x0e2\x15.event.v1.EventStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -608,17 +663,23 @@ const file_event_v1_event_proto_rawDesc = "" +
 	"\x18PollPendingEventsRequest\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\"D\n" +
 	"\x19PollPendingEventsResponse\x12'\n" +
-	"\x06events\x18\x01 \x03(\v2\x0f.event.v1.EventR\x06events\"B\n" +
+	"\x06events\x18\x01 \x03(\v2\x0f.event.v1.EventR\x06events\"Y\n" +
 	"\x18UpdateEventStatusRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
-	"\x06status\x18\x02 \x01(\tR\x06status\"B\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12-\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x15.event.v1.EventStatusR\x06status\"B\n" +
 	"\x19UpdateEventStatusResponse\x12%\n" +
 	"\x05event\x18\x01 \x01(\v2\x0f.event.v1.EventR\x05event\"A\n" +
 	"\x11ListEventsRequest\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
 	"\x06offset\x18\x02 \x01(\x05R\x06offset\"=\n" +
 	"\x12ListEventsResponse\x12'\n" +
-	"\x06events\x18\x01 \x03(\v2\x0f.event.v1.EventR\x06eventsB\xa9\x01\n" +
+	"\x06events\x18\x01 \x03(\v2\x0f.event.v1.EventR\x06events*\x97\x01\n" +
+	"\vEventStatus\x12\x1c\n" +
+	"\x18EVENT_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14EVENT_STATUS_PENDING\x10\x01\x12\x1b\n" +
+	"\x17EVENT_STATUS_PROCESSING\x10\x02\x12\x1a\n" +
+	"\x16EVENT_STATUS_COMPLETED\x10\x03\x12\x17\n" +
+	"\x13EVENT_STATUS_FAILED\x10\x04B\xa9\x01\n" +
 	"\fcom.event.v1B\n" +
 	"EventProtoP\x01ZLgithub.com/yaninyzwitty/temporal-durable-event-pipeline/gen/event/v1;eventv1\xa2\x02\x03EXX\xaa\x02\bEvent.V1\xca\x02\bEvent\\V1\xe2\x02\x14Event\\V1\\GPBMetadata\xea\x02\tEvent::V1b\x06proto3"
 
@@ -634,38 +695,42 @@ func file_event_v1_event_proto_rawDescGZIP() []byte {
 	return file_event_v1_event_proto_rawDescData
 }
 
+var file_event_v1_event_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_event_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_event_v1_event_proto_goTypes = []any{
-	(*Event)(nil),                     // 0: event.v1.Event
-	(*CreateEventRequest)(nil),        // 1: event.v1.CreateEventRequest
-	(*CreateEventResponse)(nil),       // 2: event.v1.CreateEventResponse
-	(*GetEventRequest)(nil),           // 3: event.v1.GetEventRequest
-	(*GetEventResponse)(nil),          // 4: event.v1.GetEventResponse
-	(*PollPendingEventsRequest)(nil),  // 5: event.v1.PollPendingEventsRequest
-	(*PollPendingEventsResponse)(nil), // 6: event.v1.PollPendingEventsResponse
-	(*UpdateEventStatusRequest)(nil),  // 7: event.v1.UpdateEventStatusRequest
-	(*UpdateEventStatusResponse)(nil), // 8: event.v1.UpdateEventStatusResponse
-	(*ListEventsRequest)(nil),         // 9: event.v1.ListEventsRequest
-	(*ListEventsResponse)(nil),        // 10: event.v1.ListEventsResponse
-	(*structpb.Struct)(nil),           // 11: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil),     // 12: google.protobuf.Timestamp
+	(EventStatus)(0),                  // 0: event.v1.EventStatus
+	(*Event)(nil),                     // 1: event.v1.Event
+	(*CreateEventRequest)(nil),        // 2: event.v1.CreateEventRequest
+	(*CreateEventResponse)(nil),       // 3: event.v1.CreateEventResponse
+	(*GetEventRequest)(nil),           // 4: event.v1.GetEventRequest
+	(*GetEventResponse)(nil),          // 5: event.v1.GetEventResponse
+	(*PollPendingEventsRequest)(nil),  // 6: event.v1.PollPendingEventsRequest
+	(*PollPendingEventsResponse)(nil), // 7: event.v1.PollPendingEventsResponse
+	(*UpdateEventStatusRequest)(nil),  // 8: event.v1.UpdateEventStatusRequest
+	(*UpdateEventStatusResponse)(nil), // 9: event.v1.UpdateEventStatusResponse
+	(*ListEventsRequest)(nil),         // 10: event.v1.ListEventsRequest
+	(*ListEventsResponse)(nil),        // 11: event.v1.ListEventsResponse
+	(*structpb.Struct)(nil),           // 12: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),     // 13: google.protobuf.Timestamp
 }
 var file_event_v1_event_proto_depIdxs = []int32{
-	11, // 0: event.v1.Event.payload:type_name -> google.protobuf.Struct
-	12, // 1: event.v1.Event.created_at:type_name -> google.protobuf.Timestamp
-	12, // 2: event.v1.Event.updated_at:type_name -> google.protobuf.Timestamp
-	12, // 3: event.v1.Event.processed_at:type_name -> google.protobuf.Timestamp
-	11, // 4: event.v1.CreateEventRequest.payload:type_name -> google.protobuf.Struct
-	0,  // 5: event.v1.CreateEventResponse.event:type_name -> event.v1.Event
-	0,  // 6: event.v1.GetEventResponse.event:type_name -> event.v1.Event
-	0,  // 7: event.v1.PollPendingEventsResponse.events:type_name -> event.v1.Event
-	0,  // 8: event.v1.UpdateEventStatusResponse.event:type_name -> event.v1.Event
-	0,  // 9: event.v1.ListEventsResponse.events:type_name -> event.v1.Event
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	12, // 0: event.v1.Event.payload:type_name -> google.protobuf.Struct
+	0,  // 1: event.v1.Event.status:type_name -> event.v1.EventStatus
+	13, // 2: event.v1.Event.created_at:type_name -> google.protobuf.Timestamp
+	13, // 3: event.v1.Event.updated_at:type_name -> google.protobuf.Timestamp
+	13, // 4: event.v1.Event.processed_at:type_name -> google.protobuf.Timestamp
+	12, // 5: event.v1.CreateEventRequest.payload:type_name -> google.protobuf.Struct
+	1,  // 6: event.v1.CreateEventResponse.event:type_name -> event.v1.Event
+	1,  // 7: event.v1.GetEventResponse.event:type_name -> event.v1.Event
+	1,  // 8: event.v1.PollPendingEventsResponse.events:type_name -> event.v1.Event
+	0,  // 9: event.v1.UpdateEventStatusRequest.status:type_name -> event.v1.EventStatus
+	1,  // 10: event.v1.UpdateEventStatusResponse.event:type_name -> event.v1.Event
+	1,  // 11: event.v1.ListEventsResponse.events:type_name -> event.v1.Event
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_event_v1_event_proto_init() }
@@ -678,13 +743,14 @@ func file_event_v1_event_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_event_v1_event_proto_rawDesc), len(file_event_v1_event_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_event_v1_event_proto_goTypes,
 		DependencyIndexes: file_event_v1_event_proto_depIdxs,
+		EnumInfos:         file_event_v1_event_proto_enumTypes,
 		MessageInfos:      file_event_v1_event_proto_msgTypes,
 	}.Build()
 	File_event_v1_event_proto = out.File
