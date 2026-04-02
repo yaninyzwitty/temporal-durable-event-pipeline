@@ -19,7 +19,8 @@ message Event {
   string id = 1;
   string event_type = 2;
   google.protobuf.Struct payload = 3;
-  EventStatus status = 4;
+  string status = 4 [deprecated = true];
+  EventStatus status_v2 = 8;
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp updated_at = 6;
   google.protobuf.Timestamp processed_at = 7;
@@ -52,7 +53,8 @@ message PollPendingEventsResponse {
 
 message UpdateEventStatusRequest {
   string id = 1;
-  EventStatus status = 2;
+  string status = 2 [deprecated = true];
+  EventStatus status_v2 = 3;
 }
 
 message UpdateEventStatusResponse {

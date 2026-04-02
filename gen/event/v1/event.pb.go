@@ -79,11 +79,13 @@ func (EventStatus) EnumDescriptor() ([]byte, []int) {
 }
 
 type Event struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	EventType     string                 `protobuf:"bytes,2,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
-	Payload       *structpb.Struct       `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Status        EventStatus            `protobuf:"varint,4,opt,name=status,proto3,enum=event.v1.EventStatus" json:"status,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	EventType string                 `protobuf:"bytes,2,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	Payload   *structpb.Struct       `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	// Deprecated: Marked as deprecated in event/v1/event.proto.
+	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	StatusV2      EventStatus            `protobuf:"varint,8,opt,name=status_v2,json=statusV2,proto3,enum=event.v1.EventStatus" json:"status_v2,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	ProcessedAt   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=processed_at,json=processedAt,proto3" json:"processed_at,omitempty"`
@@ -142,9 +144,17 @@ func (x *Event) GetPayload() *structpb.Struct {
 	return nil
 }
 
-func (x *Event) GetStatus() EventStatus {
+// Deprecated: Marked as deprecated in event/v1/event.proto.
+func (x *Event) GetStatus() string {
 	if x != nil {
 		return x.Status
+	}
+	return ""
+}
+
+func (x *Event) GetStatusV2() EventStatus {
+	if x != nil {
+		return x.StatusV2
 	}
 	return EventStatus_EVENT_STATUS_UNSPECIFIED
 }
@@ -443,9 +453,11 @@ func (x *PollPendingEventsResponse) GetEvents() []*Event {
 }
 
 type UpdateEventStatusRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Status        EventStatus            `protobuf:"varint,2,opt,name=status,proto3,enum=event.v1.EventStatus" json:"status,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Deprecated: Marked as deprecated in event/v1/event.proto.
+	Status        string      `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	StatusV2      EventStatus `protobuf:"varint,3,opt,name=status_v2,json=statusV2,proto3,enum=event.v1.EventStatus" json:"status_v2,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -487,9 +499,17 @@ func (x *UpdateEventStatusRequest) GetId() string {
 	return ""
 }
 
-func (x *UpdateEventStatusRequest) GetStatus() EventStatus {
+// Deprecated: Marked as deprecated in event/v1/event.proto.
+func (x *UpdateEventStatusRequest) GetStatus() string {
 	if x != nil {
 		return x.Status
+	}
+	return ""
+}
+
+func (x *UpdateEventStatusRequest) GetStatusV2() EventStatus {
+	if x != nil {
+		return x.StatusV2
 	}
 	return EventStatus_EVENT_STATUS_UNSPECIFIED
 }
@@ -638,13 +658,14 @@ var File_event_v1_event_proto protoreflect.FileDescriptor
 
 const file_event_v1_event_proto_rawDesc = "" +
 	"\n" +
-	"\x14event/v1/event.proto\x12\bevent.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xcd\x02\n" +
+	"\x14event/v1/event.proto\x12\bevent.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xee\x02\n" +
 	"\x05Event\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
 	"event_type\x18\x02 \x01(\tR\teventType\x121\n" +
-	"\apayload\x18\x03 \x01(\v2\x17.google.protobuf.StructR\apayload\x12-\n" +
-	"\x06status\x18\x04 \x01(\x0e2\x15.event.v1.EventStatusR\x06status\x129\n" +
+	"\apayload\x18\x03 \x01(\v2\x17.google.protobuf.StructR\apayload\x12\x1a\n" +
+	"\x06status\x18\x04 \x01(\tB\x02\x18\x01R\x06status\x122\n" +
+	"\tstatus_v2\x18\b \x01(\x0e2\x15.event.v1.EventStatusR\bstatusV2\x129\n" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -663,10 +684,11 @@ const file_event_v1_event_proto_rawDesc = "" +
 	"\x18PollPendingEventsRequest\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\"D\n" +
 	"\x19PollPendingEventsResponse\x12'\n" +
-	"\x06events\x18\x01 \x03(\v2\x0f.event.v1.EventR\x06events\"Y\n" +
+	"\x06events\x18\x01 \x03(\v2\x0f.event.v1.EventR\x06events\"z\n" +
 	"\x18UpdateEventStatusRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12-\n" +
-	"\x06status\x18\x02 \x01(\x0e2\x15.event.v1.EventStatusR\x06status\"B\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\x06status\x18\x02 \x01(\tB\x02\x18\x01R\x06status\x122\n" +
+	"\tstatus_v2\x18\x03 \x01(\x0e2\x15.event.v1.EventStatusR\bstatusV2\"B\n" +
 	"\x19UpdateEventStatusResponse\x12%\n" +
 	"\x05event\x18\x01 \x01(\v2\x0f.event.v1.EventR\x05event\"A\n" +
 	"\x11ListEventsRequest\x12\x14\n" +
@@ -715,7 +737,7 @@ var file_event_v1_event_proto_goTypes = []any{
 }
 var file_event_v1_event_proto_depIdxs = []int32{
 	12, // 0: event.v1.Event.payload:type_name -> google.protobuf.Struct
-	0,  // 1: event.v1.Event.status:type_name -> event.v1.EventStatus
+	0,  // 1: event.v1.Event.status_v2:type_name -> event.v1.EventStatus
 	13, // 2: event.v1.Event.created_at:type_name -> google.protobuf.Timestamp
 	13, // 3: event.v1.Event.updated_at:type_name -> google.protobuf.Timestamp
 	13, // 4: event.v1.Event.processed_at:type_name -> google.protobuf.Timestamp
@@ -723,7 +745,7 @@ var file_event_v1_event_proto_depIdxs = []int32{
 	1,  // 6: event.v1.CreateEventResponse.event:type_name -> event.v1.Event
 	1,  // 7: event.v1.GetEventResponse.event:type_name -> event.v1.Event
 	1,  // 8: event.v1.PollPendingEventsResponse.events:type_name -> event.v1.Event
-	0,  // 9: event.v1.UpdateEventStatusRequest.status:type_name -> event.v1.EventStatus
+	0,  // 9: event.v1.UpdateEventStatusRequest.status_v2:type_name -> event.v1.EventStatus
 	1,  // 10: event.v1.UpdateEventStatusResponse.event:type_name -> event.v1.Event
 	1,  // 11: event.v1.ListEventsResponse.events:type_name -> event.v1.Event
 	12, // [12:12] is the sub-list for method output_type

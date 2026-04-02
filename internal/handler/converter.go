@@ -188,7 +188,7 @@ func eventToProto(e repository.Event) (*eventv1.Event, error) {
 		Id:          pgUUIDToString(e.ID),
 		EventType:   e.EventType,
 		Payload:     payload,
-		Status:      status,
+		StatusV2:    status,
 		CreatedAt:   pgTimestampToProto(e.CreatedAt),
 		UpdatedAt:   pgTimestampToProto(e.UpdatedAt),
 		ProcessedAt: pgTimestampToProto(e.ProcessedAt),

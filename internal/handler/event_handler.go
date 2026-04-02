@@ -121,11 +121,11 @@ func (h *EventHandler) UpdateEventStatus(ctx context.Context, req *eventv1.Updat
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid event id")
 	}
-	if req.GetStatus() == eventv1.EventStatus_EVENT_STATUS_UNSPECIFIED {
+	if req.GetStatusV2() == eventv1.EventStatus_EVENT_STATUS_UNSPECIFIED {
 		return nil, status.Error(codes.InvalidArgument, "status is required")
 	}
 
-	statusVal := eventStatusFromProto(req.GetStatus())
+	statusVal := eventStatusFromProto(req.GetStatusV2())
 	if statusVal == "" {
 		return nil, status.Error(codes.InvalidArgument, "invalid status value; must be one of PENDING, PROCESSING, COMPLETED, FAILED")
 	}

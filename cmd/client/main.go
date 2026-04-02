@@ -37,7 +37,11 @@ func main() {
 	orderClient := orderv1.NewOrderServiceClient(conn)
 	eventClient := eventv1.NewEventServiceClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	rpcCtx := func() (context.Context, context.CancelFunc) {
+		return context.WithTimeout(context.Background(), 30*time.Second)
+	}
+
+	ctx, cancel := rpcCtx()
 	defer cancel()
 
 	// ---------- UserService: Create ----------
@@ -356,8 +360,8 @@ func main() {
 	log.Info("=== UpdateEventStatus ===")
 	if eventCreateResp != nil && eventCreateResp.Event != nil {
 		updateResp, err := eventClient.UpdateEventStatus(ctx, &eventv1.UpdateEventStatusRequest{
-			Id:     eventCreateResp.Event.Id,
-			Status: eventv1.EventStatus_EVENT_STATUS_COMPLETED,
+			Id:       eventCreateResp.Event.Id,
+			StatusV2: eventv1.EventStatus_EVENT_STATUS_COMPLETED,
 		})
 		if err != nil {
 			log.Error("UpdateEventStatus failed", "error", err)
