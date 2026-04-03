@@ -24,6 +24,8 @@ jobs:
   unit-test:
     name: Unit Tests
     runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,7 +33,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: ${{ inputs.go-version }}
+          go-version-file: go.mod
           cache: true
 
       # go mod verify ensures all dependencies are reproducible

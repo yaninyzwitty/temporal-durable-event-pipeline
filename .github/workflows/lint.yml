@@ -19,6 +19,8 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,7 +28,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: ${{ inputs.go-version }}
+          go-version-file: go.mod
           cache: true
 
       # go mod tidy ensures go.mod and go.sum are consistent
@@ -42,6 +44,7 @@ jobs:
         with:
           version: latest
           args: --timeout=5m
+          install-mode: binary
 
       # Additional checks: go vet and gofmt
       - name: Run go vet
