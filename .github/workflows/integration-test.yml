@@ -19,11 +19,6 @@ on:
         required: false
         default: "integration-coverage"
         description: "Artifact name for coverage files"
-      docker-compose-file:
-        type: string
-        required: false
-        default: "compose.yaml"
-        description: "Docker compose file for test infrastructure"
 
 jobs:
   integration-test:
@@ -75,8 +70,14 @@ jobs:
       - name: Run integration tests
         env:
           INTEGRATION: "true"
-          DATABASE_URL: "postgres://testuser:testpass@localhost:5432/testdb?sslmode=disable"
+          DB_USER: testuser
+          DB_PASS: testpass
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: testdb
+          DB_SSLMODE: disable
         run: |
+          export DATABASE_URL="postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}"
           go test -race -count=1 -tags=integration -coverprofile=coverage.out -covermode=atomic ./...
 
       # Upload coverage artifact

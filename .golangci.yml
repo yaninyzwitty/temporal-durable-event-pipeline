@@ -17,7 +17,7 @@ run:
       - ".*_test.go"
       - ".*\\.pb\\.go$"
 
-  # Number of threads for parallel linting
+  # Disable running linters on test files (*_test.go)
   tests: false
 
   # Timeout for linters

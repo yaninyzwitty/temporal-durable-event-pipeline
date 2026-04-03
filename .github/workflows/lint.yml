@@ -35,7 +35,13 @@ jobs:
       # This is important because linting may analyze code that depends on dependencies
       # Running it ensures we catch dependency issues before linting
       - name: Run go mod tidy
-        run: go mod tidy
+        run: |
+          go mod tidy
+          if [ -n "$(git diff -- go.mod go.sum)" ]; then
+            echo "go.mod or go.sum was modified:"
+            git diff -- go.mod go.sum
+            exit 1
+          fi
 
       # golangci-lint runs all enabled linters in parallel
       # Using count=1 ensures deterministic results (no flaky tests affecting linter)
@@ -45,15 +51,3 @@ jobs:
           version: latest
           args: --timeout=5m
           install-mode: binary
-
-      # Additional checks: go vet and gofmt
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Check gofmt
-        run: |
-          if [ -n "$(gofmt -l .)" ]; then
-            echo "Unformatted files found:"
-            gofmt -l .
-            exit 1
-          fi

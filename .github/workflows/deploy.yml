@@ -16,7 +16,6 @@ on:
 
 # Environment variables
 env:
-  GO_VERSION: "1.26"
   IMAGE_NAME: ${{ github.repository }}
   DOCKER_REGISTRY: docker.io
 
@@ -61,6 +60,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            BINARY_NAME=server
 
   # Build and push client image
   deploy-client:
@@ -102,6 +103,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            BINARY_NAME=client
 
   # Create GitHub release if tag push
   release:
@@ -109,16 +112,16 @@ jobs:
     needs: [deploy-server, deploy-client]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
+        run: |
+          gh release create "${{ github.ref }}" \
+            --title "Release ${{ github.ref_name }}" \
+            --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
