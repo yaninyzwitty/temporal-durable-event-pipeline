@@ -3,7 +3,6 @@
 
 run:
   # Go version - should match go.mod
-  go: "1.26.1"
 
   # Skip directories and files during linting
   issues:

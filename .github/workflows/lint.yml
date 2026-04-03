@@ -3,24 +3,15 @@ name: Lint
 
 on:
   workflow_call:
-    inputs:
-      go-version:
-        type: string
-        required: false
-        default: ""
-        description: "Go version to use (leave empty to use go.mod)"
-      cache-key:
-        type: string
-        required: false
-        default: ""
-        description: "Cache key (deprecated, use cache: true instead)"
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+
     env:
       GOTOOLCHAIN: local
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,10 +22,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # go mod tidy ensures go.mod and go.sum are consistent
-      # This is important because linting may analyze code that depends on dependencies
-      # Running it ensures we catch dependency issues before linting
-      - name: Run go mod tidy
+      # Ensure go.mod and go.sum are clean and reproducible
+      - name: Verify dependencies (go mod tidy)
         run: |
           go mod tidy
           if [ -n "$(git diff -- go.mod go.sum)" ]; then
@@ -43,11 +32,10 @@ jobs:
             exit 1
           fi
 
-      # golangci-lint runs all enabled linters in parallel
-      # Using count=1 ensures deterministic results (no flaky tests affecting linter)
+      # Run golangci-lint using the same Go toolchain (avoids version mismatch)
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          args: --timeout=5m
-          install-mode: binary
+          install-mode: goinstall
+          args: --timeout=5m --config=.golangci.yml
