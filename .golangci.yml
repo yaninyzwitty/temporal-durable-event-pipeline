@@ -1,0 +1,64 @@
+# .golangci.yml - Linter configuration
+# This file configures golangci-lint for the project.
+
+run:
+  # Go version - should match go.mod
+  go: "1.26.1"
+
+  # Skip directories and files during linting
+  skip-dirs:
+    - gen/
+    - db/
+    - vendor/
+
+  # Skip test files and test data directories
+  skip-files:
+    - ".*_test.go"
+    - ".*\\.pb\\.go$"
+
+  # Number of threads for parallel linting
+  tests: false
+
+  # Timeout for linters
+  timeout: 5m
+
+# Linters to enable
+linters:
+  enable:
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Reports suspicious constructs
+    - ineffassign   # Detects unused variable assignments
+    - staticcheck   # Static analysis checks
+    - unused        # Checks for unused code
+    - gofmt         # Checks whether code was formatted
+    - goimports     # Check import statements are formatted
+    - misspell      # Finds commonly misspelled words
+    - unconvert     # Detects unnecessary type conversions
+    - unparam       # Reports unused function parameters
+    - gocritic      # Provides diagnostics that check for bugs and style issues
+
+# Linter settings
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    enable-all: true
+
+  gofmt:
+    simplify: true
+
+  misspell:
+    locale: US
+
+  gocritic:
+    # Disable some checks that are too noisy
+    disabled-checks:
+      - commentSpelling
+      - ifElseChain
+      - singleCaseSwitch
+      - unnamedResult
+      - whyNot
+      - wrapperFunc

@@ -1,0 +1,56 @@
+# .github/workflows/lint.yml - Reusable lint workflow
+name: Lint
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        type: string
+        required: false
+        default: ""
+        description: "Go version to use (leave empty to use go.mod)"
+      cache-key:
+        type: string
+        required: false
+        default: ""
+        description: "Cache key (deprecated, use cache: true instead)"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ inputs.go-version }}
+          cache: true
+
+      # go mod tidy ensures go.mod and go.sum are consistent
+      # This is important because linting may analyze code that depends on dependencies
+      # Running it ensures we catch dependency issues before linting
+      - name: Run go mod tidy
+        run: go mod tidy
+
+      # golangci-lint runs all enabled linters in parallel
+      # Using count=1 ensures deterministic results (no flaky tests affecting linter)
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+      # Additional checks: go vet and gofmt
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Check gofmt
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "Unformatted files found:"
+            gofmt -l .
+            exit 1
+          fi

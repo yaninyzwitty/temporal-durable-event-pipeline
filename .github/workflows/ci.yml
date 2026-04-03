@@ -1,0 +1,68 @@
+# .github/workflows/ci.yml - Main CI workflow
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Lint runs in parallel with tests for faster feedback
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  # Unit tests run in parallel with integration tests
+  unit-test:
+    uses: ./.github/workflows/unit-test.yml
+    with:
+      coverage-artifact: unit-coverage
+
+  # Integration tests run in parallel with unit tests
+  integration-test:
+    uses: ./.github/workflows/integration-test.yml
+    with:
+      coverage-artifact: integration-coverage
+
+  # Combine coverage from parallel jobs
+  coverage:
+    name: Coverage Report
+    needs: [unit-test, integration-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Download unit coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: unit-coverage
+          path: coverage/unit
+
+      - name: Download integration coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: integration-coverage
+          path: coverage/integration
+
+      - name: Install gocovmerge
+        run: go install github.com/AaronO/gocovmerge@latest
+
+      - name: Merge coverage
+        run: |
+          gocovmerge coverage/unit/coverage.out coverage/integration/coverage.out > coverage/merged.out
+
+      - name: Generate coverage report
+        run: go tool cover -func=coverage/merged.out
+
+      - name: Upload merged coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: merged-coverage
+          path: coverage/merged.out
+          retention-days: 30

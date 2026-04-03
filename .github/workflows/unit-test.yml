@@ -1,0 +1,57 @@
+# .github/workflows/unit-test.yml - Reusable unit tests workflow
+name: Unit Tests
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        type: string
+        required: false
+        default: ""
+        description: "Go version to use (leave empty to use go.mod)"
+      cache-key:
+        type: string
+        required: false
+        default: ""
+        description: "Cache key (deprecated, use cache: true instead)"
+      coverage-artifact:
+        type: string
+        required: false
+        default: "unit-coverage"
+        description: "Artifact name for coverage files"
+
+jobs:
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ inputs.go-version }}
+          cache: true
+
+      # go mod verify ensures all dependencies are reproducible
+      # This catches issues where go.sum might be corrupted or out of sync
+      - name: Verify go modules
+        run: go mod verify
+
+      # Run unit tests with race detector
+      # count=1 disables test caching to ensure tests run fresh each time
+      # race detector catches data races which are critical for concurrent code
+      # Using -coverprofile for coverage analysis
+      - name: Run unit tests
+        run: |
+          go test -race -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+
+      # Upload coverage artifact for later aggregation
+      # This allows combining coverage from parallel jobs
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.coverage-artifact }}
+          path: coverage.out
+          retention-days: 7
