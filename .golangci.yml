@@ -5,24 +5,13 @@ run:
   # Go version - should match go.mod
   go: "1.26.1"
 
-  # Skip directories during linting
-  skip-dirs:
-    - gen/
-    - db/
-    - vendor/
-
-  # Skip test files during linting
-  skip-files:
-    - ".*_test.go"
-    - ".*\\.pb\\.go$"
-
   # Disable running linters on test files (*_test.go)
   tests: false
 
   # Timeout for linters
   timeout: 5m
 
-# Issues configuration
+# Issues configuration (directories/files to exclude)
 issues:
   exclude-dirs:
     - gen/
