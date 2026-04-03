@@ -40,7 +40,10 @@ func pgNumericToString(n pgtype.Numeric) string {
 	if !n.Valid {
 		return "0"
 	}
-	s, _ := n.Value()
+	s, err := n.Value()
+	if err != nil {
+		return "0"
+	}
 	if s == nil {
 		return "0"
 	}

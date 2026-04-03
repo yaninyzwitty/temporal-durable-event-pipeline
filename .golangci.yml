@@ -58,3 +58,11 @@ linters-settings:
     disabled-checks:
       - ifElseChain
       - wrapperFunc
+
+  # Disable fieldalignment - it causes false positives with pointer fields
+  govet:
+    enable-all: false
+    enable:
+      - nilness
+      - printf
+      - unsafeptr

@@ -26,7 +26,7 @@ func (s *Store) ExecTx(ctx context.Context, fn func(*Store) error) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	txStore := &Store{
 		pool:    s.pool,

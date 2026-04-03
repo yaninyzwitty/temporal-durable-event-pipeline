@@ -30,6 +30,7 @@ func main() {
 
 	var config pkg.Config
 	if err := config.Load(log, *configPath); err != nil {
+		cancel()
 		log.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
