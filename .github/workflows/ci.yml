@@ -51,6 +51,8 @@ jobs:
           path: coverage/integration
 
       - name: Install gocovmerge
+        env:
+          GOPROXY: https://proxy.golang.org,direct
         run: go install github.com/AaronO/gocovmerge@latest
 
       - name: Merge coverage
