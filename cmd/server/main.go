@@ -30,6 +30,7 @@ func main() {
 
 	var config pkg.Config
 	if err := config.Load(log, *configPath); err != nil {
+		//nolint:gocritic // cancel is called explicitly before os.Exit
 		cancel()
 		log.Error("failed to load config", "error", err)
 		os.Exit(1)
