@@ -50,14 +50,11 @@ jobs:
           name: integration-coverage
           path: coverage/integration
 
-      - name: Install gocovmerge
-        env:
-          GOPROXY: https://proxy.golang.org,direct
-        run: go install github.com/AaronO/gocovmerge@latest
-
       - name: Merge coverage
         run: |
-          gocovmerge coverage/unit/coverage.out coverage/integration/coverage.out > coverage/merged.out
+          # Combine coverage files without gocovmerge
+          echo "mode: set" > coverage/merged.out
+          cat coverage/unit/coverage.out coverage/integration/coverage.out | grep -v "^mode:" >> coverage/merged.out
 
       - name: Generate coverage report
         run: go tool cover -func=coverage/merged.out
