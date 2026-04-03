@@ -1,0 +1,89 @@
+# .github/workflows/integration-test.yml - Reusable integration tests workflow
+name: Integration Tests
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        type: string
+        required: false
+        default: ''
+        description: "Go version to use (leave empty to use go.mod)"
+      cache-key:
+        type: string
+        required: false
+        default: ''
+        description: "Cache key (deprecated, use cache: true instead)"
+      coverage-artifact:
+        type: string
+        required: false
+        default: "integration-coverage"
+        description: "Artifact name for coverage files"
+
+jobs:
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
+    services:
+      # Start PostgreSQL container for integration tests
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Wait for PostgreSQL to be ready
+      # This is more reliable than relying on Docker health checks alone
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U testuser; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+      # Run integration tests with database
+      # INTEGRATION=true ensures only integration tests run
+      # count=1 ensures fresh test execution without caching
+      - name: Run integration tests
+        env:
+          INTEGRATION: "true"
+          DB_USER: testuser
+          DB_PASS: testpass
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: testdb
+          DB_SSLMODE: disable
+        run: |
+          export DATABASE_URL="postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}"
+          go test -race -count=1 -tags=integration -coverprofile=coverage.out -covermode=atomic ./...
+
+      # Upload coverage artifact
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.coverage-artifact }}
+          path: coverage.out
+          retention-days: 7

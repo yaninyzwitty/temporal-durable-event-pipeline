@@ -111,7 +111,7 @@ func WaitForDB(ctx context.Context, cfg pkg.DatabaseConfig, maxRetries int, opti
 		if i < maxRetries-1 {
 			select {
 			case <-ctx.Done():
-				return nil, fmt.Errorf("context cancelled while waiting for database: %w", ctx.Err())
+				return nil, fmt.Errorf("context canceled while waiting for database: %w", ctx.Err())
 			case <-time.After(2 * time.Second):
 				continue
 			}

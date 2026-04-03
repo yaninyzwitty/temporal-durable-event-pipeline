@@ -30,6 +30,8 @@ func main() {
 
 	var config pkg.Config
 	if err := config.Load(log, *configPath); err != nil {
+		//nolint:gocritic // cancel is called explicitly before os.Exit
+		cancel()
 		log.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
@@ -58,7 +60,7 @@ func main() {
 		log.Error("failed to start gRPC server", "error", err)
 		os.Exit(1)
 	}
-	log.Info("server started", "address", lis.Addr().String())
+	log.Info("grpc server started", "address", lis.Addr().String())
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

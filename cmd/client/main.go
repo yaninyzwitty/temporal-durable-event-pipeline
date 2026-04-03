@@ -71,34 +71,34 @@ func main() {
 
 	log.Info("=== GetUser ===")
 	if userCreateResp != nil && userCreateResp.User != nil {
-		getResp, err := userClient.GetUser(ctx, &userv1.GetUserRequest{
+		getResp, errGet := userClient.GetUser(ctx, &userv1.GetUserRequest{
 			Id: userCreateResp.User.Id,
 		})
-		if err != nil {
-			log.Error("GetUser failed", "error", err)
+		if errGet != nil {
+			log.Error("GetUser failed", "error", errGet)
 		} else {
 			log.Info("GetUser succeeded", "user", formatUser(getResp.User))
 		}
 	}
 
 	log.Info("=== GetUserByEmail ===")
-	emailResp, err := userClient.GetUserByEmail(ctx, &userv1.GetUserByEmailRequest{
+	emailResp, errEmail := userClient.GetUserByEmail(ctx, &userv1.GetUserByEmailRequest{
 		Email: "testuser@example.com",
 	})
-	if err != nil {
-		log.Error("GetUserByEmail failed", "error", err)
+	if errEmail != nil {
+		log.Error("GetUserByEmail failed", "error", errEmail)
 	} else {
 		log.Info("GetUserByEmail succeeded", "user", formatUser(emailResp.User))
 	}
 
 	log.Info("=== UpdateUser ===")
 	if userCreateResp != nil && userCreateResp.User != nil {
-		updateResp, err := userClient.UpdateUser(ctx, &userv1.UpdateUserRequest{
+		updateResp, errUpdate := userClient.UpdateUser(ctx, &userv1.UpdateUserRequest{
 			Id:       userCreateResp.User.Id,
 			Username: "updateduser",
 			Email:    "updated@example.com",
 		})
-		if err != nil {
+		if errUpdate != nil {
 			log.Error("UpdateUser failed", "error", err)
 		} else {
 			log.Info("UpdateUser succeeded", "user", formatUser(updateResp.User))
@@ -133,11 +133,11 @@ func main() {
 
 	log.Info("=== GetProduct ===")
 	if productCreateResp != nil && productCreateResp.Product != nil {
-		getResp, err := productClient.GetProduct(ctx, &productv1.GetProductRequest{
+		getResp, errGet := productClient.GetProduct(ctx, &productv1.GetProductRequest{
 			Id: productCreateResp.Product.Id,
 		})
-		if err != nil {
-			log.Error("GetProduct failed", "error", err)
+		if errGet != nil {
+			log.Error("GetProduct failed", "error", errGet)
 		} else {
 			log.Info("GetProduct succeeded", "product", formatProduct(getResp.Product))
 		}
@@ -305,10 +305,14 @@ func main() {
 
 	// ---------- EventService ----------
 
-	payload, _ := structpb.NewStruct(map[string]interface{}{
+	payload, err := structpb.NewStruct(map[string]interface{}{
 		"action": "user_signup",
 		"email":  "testuser@example.com",
 	})
+	if err != nil {
+		log.Error("Failed to create struct payload", "error", err)
+		return
+	}
 
 	log.Info("=== CreateEvent ===")
 	eventCreateResp, err := eventClient.CreateEvent(ctx, &eventv1.CreateEventRequest{
@@ -403,6 +407,7 @@ func formatEvent(e *eventv1.Event) string {
 	if e == nil {
 		return "<nil>"
 	}
+	//nolint:staticcheck // SA1019: e.Status is deprecated
 	return fmt.Sprintf("{id: %s, type: %s, status: %s}", e.Id, e.EventType, e.Status)
 }
 
