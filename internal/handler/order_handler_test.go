@@ -2,12 +2,14 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
 	"go.uber.org/mock/gomock"
@@ -21,6 +23,10 @@ func newNumeric(s string) pgtype.Numeric {
 	var n pgtype.Numeric
 	n.Scan(s)
 	return n
+}
+
+func newCommandTag(affected int64) pgconn.CommandTag {
+	return pgconn.NewCommandTag(fmt.Sprintf("%d", affected))
 }
 
 func setupOrderHandler(t *testing.T) (*MockOrderStore, *OrderHandler) {
@@ -349,7 +355,7 @@ func TestOrderHandler_DeleteOrder_Success(t *testing.T) {
 	orderID := uuid.New()
 	req := &orderv1.DeleteOrderRequest{Id: orderID.String()}
 
-	mockStore.EXPECT().DeleteOrder(gomock.Any(), orderID).Return(nil)
+	mockStore.EXPECT().DeleteOrder(gomock.Any(), orderID).Return(newCommandTag(1), nil)
 
 	_, err := handler.DeleteOrder(ctx, req)
 
@@ -365,7 +371,7 @@ func TestOrderHandler_DeleteOrder_NotFound(t *testing.T) {
 	orderID := uuid.New()
 	req := &orderv1.DeleteOrderRequest{Id: orderID.String()}
 
-	mockStore.EXPECT().DeleteOrder(gomock.Any(), orderID).Return(pgx.ErrNoRows)
+	mockStore.EXPECT().DeleteOrder(gomock.Any(), orderID).Return(pgconn.CommandTag{}, nil)
 
 	_, err := handler.DeleteOrder(ctx, req)
 
@@ -479,7 +485,7 @@ func TestOrderHandler_DeleteOrderItem_Success(t *testing.T) {
 	itemID := uuid.New()
 	req := &orderv1.DeleteOrderItemRequest{Id: itemID.String()}
 
-	mockStore.EXPECT().DeleteOrderItem(gomock.Any(), itemID).Return(nil)
+	mockStore.EXPECT().DeleteOrderItem(gomock.Any(), itemID).Return(newCommandTag(1), nil)
 
 	_, err := handler.DeleteOrderItem(ctx, req)
 
@@ -495,7 +501,7 @@ func TestOrderHandler_DeleteOrderItem_NotFound(t *testing.T) {
 	itemID := uuid.New()
 	req := &orderv1.DeleteOrderItemRequest{Id: itemID.String()}
 
-	mockStore.EXPECT().DeleteOrderItem(gomock.Any(), itemID).Return(pgx.ErrNoRows)
+	mockStore.EXPECT().DeleteOrderItem(gomock.Any(), itemID).Return(pgconn.CommandTag{}, nil)
 
 	_, err := handler.DeleteOrderItem(ctx, req)
 

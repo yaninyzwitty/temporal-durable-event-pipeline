@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	uuid "github.com/google/uuid"
+	pgconn "github.com/jackc/pgx/v5/pgconn"
 	pgtype "github.com/jackc/pgx/v5/pgtype"
 	repository "github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
 	gomock "go.uber.org/mock/gomock"
@@ -74,11 +75,12 @@ func (mr *MockOrderStoreMockRecorder) CreateOrderItem(ctx, orderID, productID, q
 }
 
 // DeleteOrder mocks base method.
-func (m *MockOrderStore) DeleteOrder(ctx context.Context, id uuid.UUID) error {
+func (m *MockOrderStore) DeleteOrder(ctx context.Context, id uuid.UUID) (pgconn.CommandTag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteOrder", ctx, id)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(pgconn.CommandTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteOrder indicates an expected call of DeleteOrder.
@@ -88,11 +90,12 @@ func (mr *MockOrderStoreMockRecorder) DeleteOrder(ctx, id any) *gomock.Call {
 }
 
 // DeleteOrderItem mocks base method.
-func (m *MockOrderStore) DeleteOrderItem(ctx context.Context, id uuid.UUID) error {
+func (m *MockOrderStore) DeleteOrderItem(ctx context.Context, id uuid.UUID) (pgconn.CommandTag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteOrderItem", ctx, id)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(pgconn.CommandTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteOrderItem indicates an expected call of DeleteOrderItem.
