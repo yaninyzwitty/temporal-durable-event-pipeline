@@ -125,6 +125,9 @@ func (h *OrderHandler) DeleteOrder(ctx context.Context, req *orderv1.DeleteOrder
 	}
 
 	if err := h.store.DeleteOrder(ctx, id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "order not found")
+		}
 		h.logger.Error("failed to delete order", "error", err, "id", req.GetId())
 		return nil, status.Error(codes.Internal, "failed to delete order")
 	}
@@ -204,6 +207,9 @@ func (h *OrderHandler) DeleteOrderItem(ctx context.Context, req *orderv1.DeleteO
 	}
 
 	if err := h.store.DeleteOrderItem(ctx, id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "order item not found")
+		}
 		h.logger.Error("failed to delete order item", "error", err, "id", req.GetId())
 		return nil, status.Error(codes.Internal, "failed to delete order item")
 	}

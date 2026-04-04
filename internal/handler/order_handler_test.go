@@ -232,6 +232,116 @@ func TestOrderHandler_UpdateOrderStatus_MissingStatus(t *testing.T) {
 	}
 }
 
+func TestOrderHandler_InvalidInputs(t *testing.T) {
+	tests := []struct {
+		name     string
+		method   string
+		req      interface{}
+		wantCode codes.Code
+	}{
+		{
+			name:     "CreateOrder_InvalidUserID",
+			method:   "CreateOrder",
+			req:      &orderv1.CreateOrderRequest{UserId: "invalid-uuid", TotalAmount: "59.99"},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name:     "CreateOrder_MissingTotalAmount",
+			method:   "CreateOrder",
+			req:      &orderv1.CreateOrderRequest{UserId: uuid.New().String(), TotalAmount: ""},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name:     "GetOrder_InvalidID",
+			method:   "GetOrder",
+			req:      &orderv1.GetOrderRequest{Id: "invalid-uuid"},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name:     "ListOrdersByUser_InvalidUserID",
+			method:   "ListOrdersByUser",
+			req:      &orderv1.ListOrdersByUserRequest{UserId: "invalid-uuid"},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name:     "UpdateOrderStatus_MissingStatus",
+			method:   "UpdateOrderStatus",
+			req:      &orderv1.UpdateOrderStatusRequest{Id: uuid.New().String(), Status: ""},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name:     "DeleteOrder_InvalidID",
+			method:   "DeleteOrder",
+			req:      &orderv1.DeleteOrderRequest{Id: "invalid-uuid"},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name:     "CreateOrderItem_InvalidOrderID",
+			method:   "CreateOrderItem",
+			req:      &orderv1.CreateOrderItemRequest{OrderId: "invalid-uuid", ProductId: uuid.New().String(), Quantity: 1, UnitPrice: "10.00"},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name:     "CreateOrderItem_InvalidQuantity_Negative",
+			method:   "CreateOrderItem",
+			req:      &orderv1.CreateOrderItemRequest{OrderId: uuid.New().String(), ProductId: uuid.New().String(), Quantity: 0, UnitPrice: "10.00"},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name:     "GetOrderItems_InvalidOrderID",
+			method:   "GetOrderItems",
+			req:      &orderv1.GetOrderItemsRequest{OrderId: "invalid-uuid"},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name:     "UpdateOrderItemQuantity_InvalidID",
+			method:   "UpdateOrderItemQuantity",
+			req:      &orderv1.UpdateOrderItemQuantityRequest{Id: "invalid-uuid", Quantity: 5},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name:     "DeleteOrderItem_InvalidID",
+			method:   "DeleteOrderItem",
+			req:      &orderv1.DeleteOrderItemRequest{Id: "invalid-uuid"},
+			wantCode: codes.InvalidArgument,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, handler := setupOrderHandler(t)
+			ctx := context.Background()
+
+			var err error
+			switch tt.method {
+			case "CreateOrder":
+				_, err = handler.CreateOrder(ctx, tt.req.(*orderv1.CreateOrderRequest))
+			case "GetOrder":
+				_, err = handler.GetOrder(ctx, tt.req.(*orderv1.GetOrderRequest))
+			case "ListOrdersByUser":
+				_, err = handler.ListOrdersByUser(ctx, tt.req.(*orderv1.ListOrdersByUserRequest))
+			case "UpdateOrderStatus":
+				_, err = handler.UpdateOrderStatus(ctx, tt.req.(*orderv1.UpdateOrderStatusRequest))
+			case "DeleteOrder":
+				_, err = handler.DeleteOrder(ctx, tt.req.(*orderv1.DeleteOrderRequest))
+			case "CreateOrderItem":
+				_, err = handler.CreateOrderItem(ctx, tt.req.(*orderv1.CreateOrderItemRequest))
+			case "GetOrderItems":
+				_, err = handler.GetOrderItems(ctx, tt.req.(*orderv1.GetOrderItemsRequest))
+			case "UpdateOrderItemQuantity":
+				_, err = handler.UpdateOrderItemQuantity(ctx, tt.req.(*orderv1.UpdateOrderItemQuantityRequest))
+			case "DeleteOrderItem":
+				_, err = handler.DeleteOrderItem(ctx, tt.req.(*orderv1.DeleteOrderItemRequest))
+			}
+
+			s, _ := status.FromError(err)
+			if s.Code() != tt.wantCode {
+				t.Errorf("expected %v, got %v", tt.wantCode, s.Code())
+			}
+		})
+	}
+}
+
 func TestOrderHandler_DeleteOrder_Success(t *testing.T) {
 	mockStore, handler := setupOrderHandler(t)
 	ctx := context.Background()
@@ -245,6 +355,23 @@ func TestOrderHandler_DeleteOrder_Success(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestOrderHandler_DeleteOrder_NotFound(t *testing.T) {
+	mockStore, handler := setupOrderHandler(t)
+	ctx := context.Background()
+
+	orderID := uuid.New()
+	req := &orderv1.DeleteOrderRequest{Id: orderID.String()}
+
+	mockStore.EXPECT().DeleteOrder(gomock.Any(), orderID).Return(pgx.ErrNoRows)
+
+	_, err := handler.DeleteOrder(ctx, req)
+
+	s, _ := status.FromError(err)
+	if s.Code() != codes.NotFound {
+		t.Errorf("expected NotFound, got %v", s.Code())
 	}
 }
 
@@ -358,5 +485,22 @@ func TestOrderHandler_DeleteOrderItem_Success(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestOrderHandler_DeleteOrderItem_NotFound(t *testing.T) {
+	mockStore, handler := setupOrderHandler(t)
+	ctx := context.Background()
+
+	itemID := uuid.New()
+	req := &orderv1.DeleteOrderItemRequest{Id: itemID.String()}
+
+	mockStore.EXPECT().DeleteOrderItem(gomock.Any(), itemID).Return(pgx.ErrNoRows)
+
+	_, err := handler.DeleteOrderItem(ctx, req)
+
+	s, _ := status.FromError(err)
+	if s.Code() != codes.NotFound {
+		t.Errorf("expected NotFound, got %v", s.Code())
 	}
 }

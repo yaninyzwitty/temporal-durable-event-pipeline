@@ -209,6 +209,43 @@ func TestEventHandler_UpdateEventStatus_MissingStatus(t *testing.T) {
 	}
 }
 
+func TestEventHandler_UpdateEventStatus_InvalidID(t *testing.T) {
+	_, handler := setupEventHandler(t)
+	ctx := context.Background()
+
+	req := &eventv1.UpdateEventStatusRequest{
+		Id:       "invalid-uuid",
+		StatusV2: eventv1.EventStatus_EVENT_STATUS_COMPLETED,
+	}
+
+	_, err := handler.UpdateEventStatus(ctx, req)
+
+	s, _ := status.FromError(err)
+	if s.Code() != codes.InvalidArgument {
+		t.Errorf("expected InvalidArgument, got %v", s.Code())
+	}
+}
+
+func TestEventHandler_UpdateEventStatus_NotFound(t *testing.T) {
+	mockStore, handler := setupEventHandler(t)
+	ctx := context.Background()
+
+	eventID := uuid.New()
+	req := &eventv1.UpdateEventStatusRequest{
+		Id:       eventID.String(),
+		StatusV2: eventv1.EventStatus_EVENT_STATUS_COMPLETED,
+	}
+
+	mockStore.EXPECT().UpdateEventStatus(gomock.Any(), eventID, repository.EventStatusCompleted).Return(repository.Event{}, pgx.ErrNoRows)
+
+	_, err := handler.UpdateEventStatus(ctx, req)
+
+	s, _ := status.FromError(err)
+	if s.Code() != codes.NotFound {
+		t.Errorf("expected NotFound, got %v", s.Code())
+	}
+}
+
 func TestEventHandler_ListEvents_Success(t *testing.T) {
 	mockStore, handler := setupEventHandler(t)
 	ctx := context.Background()

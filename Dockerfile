@@ -2,7 +2,7 @@
 # Usage:
 #   Server: docker build --target server-runtime .
 #   Client: docker build --target client-runtime .
-#   Tests:  docker build --target test .
+#   Tests:  docker build --target test-runner .
 
 # ---- Build Stage ----
 FROM golang:1.26-alpine@sha256:2389ebfa5b7f43eeafbd6be0c3700cc46690ef842ad962f6c5bd6be49ed82039 AS builder
@@ -29,9 +29,6 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
 FROM builder AS test-runner
 
 WORKDIR /app
-
-# Install test dependencies and run tests
-RUN go install gotest.tools/gotestsum@latest
 
 # Run tests with coverage
 RUN go test -v -coverprofile=coverage.out ./internal/handler/...
