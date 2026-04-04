@@ -7,6 +7,7 @@ package repository
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -16,8 +17,8 @@ type Querier interface {
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
-	DeleteOrder(ctx context.Context, id pgtype.UUID) error
-	DeleteOrderItem(ctx context.Context, id pgtype.UUID) error
+	DeleteOrder(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error)
+	DeleteOrderItem(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error)
 	DeleteProduct(ctx context.Context, id pgtype.UUID) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	GetEventByID(ctx context.Context, id pgtype.UUID) (Event, error)

@@ -131,6 +131,9 @@ func (h *EventHandler) UpdateEventStatus(ctx context.Context, req *eventv1.Updat
 	}
 	event, err := h.store.UpdateEventStatus(ctx, id, statusVal)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "event not found")
+		}
 		h.logger.Error("failed to update event status", "error", err, "id", req.GetId())
 		return nil, status.Error(codes.Internal, "failed to update event status")
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -165,7 +166,7 @@ func (s *Store) UpdateOrderStatus(ctx context.Context, id uuid.UUID, status pgty
 	})
 }
 
-func (s *Store) DeleteOrder(ctx context.Context, id uuid.UUID) error {
+func (s *Store) DeleteOrder(ctx context.Context, id uuid.UUID) (pgconn.CommandTag, error) {
 	return s.Queries.DeleteOrder(ctx, toPgUUID(id))
 }
 
@@ -195,7 +196,7 @@ func (s *Store) UpdateOrderItemQuantity(ctx context.Context, id uuid.UUID, quant
 	})
 }
 
-func (s *Store) DeleteOrderItem(ctx context.Context, id uuid.UUID) error {
+func (s *Store) DeleteOrderItem(ctx context.Context, id uuid.UUID) (pgconn.CommandTag, error) {
 	return s.Queries.DeleteOrderItem(ctx, toPgUUID(id))
 }
 

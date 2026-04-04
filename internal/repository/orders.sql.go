@@ -8,6 +8,7 @@ package repository
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -39,13 +40,12 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 	return i, err
 }
 
-const deleteOrder = `-- name: DeleteOrder :exec
+const deleteOrder = `-- name: DeleteOrder :execrows
 DELETE FROM orders WHERE id = $1
 `
 
-func (q *Queries) DeleteOrder(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, deleteOrder, id)
-	return err
+func (q *Queries) DeleteOrder(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, deleteOrder, id)
 }
 
 const getOrderByID = `-- name: GetOrderByID :one

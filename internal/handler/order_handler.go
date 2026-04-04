@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
 	"google.golang.org/grpc/codes"
@@ -20,11 +21,11 @@ type OrderStore interface {
 	GetOrderByID(ctx context.Context, id uuid.UUID) (repository.Order, error)
 	ListOrdersByUser(ctx context.Context, userID uuid.UUID) ([]repository.Order, error)
 	UpdateOrderStatus(ctx context.Context, id uuid.UUID, status pgtype.Text) (repository.Order, error)
-	DeleteOrder(ctx context.Context, id uuid.UUID) error
+	DeleteOrder(ctx context.Context, id uuid.UUID) (pgconn.CommandTag, error)
 	CreateOrderItem(ctx context.Context, orderID, productID uuid.UUID, quantity int32, unitPrice string) (repository.OrderItem, error)
 	GetOrderItemsByOrderID(ctx context.Context, orderID uuid.UUID) ([]repository.OrderItem, error)
 	UpdateOrderItemQuantity(ctx context.Context, id uuid.UUID, quantity int32) (repository.OrderItem, error)
-	DeleteOrderItem(ctx context.Context, id uuid.UUID) error
+	DeleteOrderItem(ctx context.Context, id uuid.UUID) (pgconn.CommandTag, error)
 }
 
 type OrderHandler struct {
@@ -124,9 +125,13 @@ func (h *OrderHandler) DeleteOrder(ctx context.Context, req *orderv1.DeleteOrder
 		return nil, status.Error(codes.InvalidArgument, "invalid order id")
 	}
 
-	if err := h.store.DeleteOrder(ctx, id); err != nil {
+	tag, err := h.store.DeleteOrder(ctx, id)
+	if err != nil {
 		h.logger.Error("failed to delete order", "error", err, "id", req.GetId())
 		return nil, status.Error(codes.Internal, "failed to delete order")
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, status.Error(codes.NotFound, "order not found")
 	}
 
 	return &orderv1.DeleteOrderResponse{}, nil
@@ -203,9 +208,13 @@ func (h *OrderHandler) DeleteOrderItem(ctx context.Context, req *orderv1.DeleteO
 		return nil, status.Error(codes.InvalidArgument, "invalid order item id")
 	}
 
-	if err := h.store.DeleteOrderItem(ctx, id); err != nil {
+	tag, err := h.store.DeleteOrderItem(ctx, id)
+	if err != nil {
 		h.logger.Error("failed to delete order item", "error", err, "id", req.GetId())
 		return nil, status.Error(codes.Internal, "failed to delete order item")
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, status.Error(codes.NotFound, "order item not found")
 	}
 
 	return &orderv1.DeleteOrderItemResponse{}, nil
