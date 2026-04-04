@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -50,11 +51,34 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool, migrationsDir string
 		if err != nil {
 			return fmt.Errorf("failed to read migration file %s: %w", file, err)
 		}
-		if _, err := pool.Exec(ctx, string(content)); err != nil {
+
+		sql := extractGooseUp(string(content))
+		if _, err := pool.Exec(ctx, sql); err != nil {
 			return fmt.Errorf("migration %s failed: %w", file, err)
 		}
 	}
 	return nil
+}
+
+func extractGooseUp(content string) string {
+	lines := strings.Split(content, "\n")
+	var result []string
+	inUpBlock := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "-- +goose") {
+			if trimmed == "-- +goose Up" {
+				inUpBlock = true
+			} else if trimmed == "-- +goose Down" {
+				break
+			}
+			continue
+		}
+		if inUpBlock && trimmed != "" {
+			result = append(result, line)
+		}
+	}
+	return strings.Join(result, "\n")
 }
 
 type Store struct {
