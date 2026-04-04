@@ -3,15 +3,33 @@ package repository_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
 
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
+
+func createPoolWithRetry(ctx context.Context, connStr string, maxRetries int) (*pgxpool.Pool, error) {
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		pool, err := repository.CreatePool(ctx, connStr)
+		if err == nil {
+			return pool, nil
+		}
+		lastErr = err
+		if i < maxRetries-1 {
+			backoff := time.Duration(1<<uint(i)) * time.Second
+			time.Sleep(backoff)
+		}
+	}
+	return nil, lastErr
+}
 
 func TestPostgresContainer(t *testing.T) {
 	ctx := context.Background()
@@ -36,7 +54,7 @@ func TestStore_User_CRUD(t *testing.T) {
 	connStr, err := container.ConnectionString(ctx)
 	require.NoError(t, err)
 
-	pool, err := repository.CreatePool(ctx, connStr)
+	pool, err := createPoolWithRetry(ctx, connStr, 5)
 	require.NoError(t, err)
 	defer pool.Close()
 
@@ -113,7 +131,7 @@ func TestStore_Product_CRUD(t *testing.T) {
 	connStr, err := container.ConnectionString(ctx)
 	require.NoError(t, err)
 
-	pool, err := repository.CreatePool(ctx, connStr)
+	pool, err := createPoolWithRetry(ctx, connStr, 5)
 	require.NoError(t, err)
 	defer pool.Close()
 
@@ -189,7 +207,7 @@ func TestStore_Event_CRUD(t *testing.T) {
 	connStr, err := container.ConnectionString(ctx)
 	require.NoError(t, err)
 
-	pool, err := repository.CreatePool(ctx, connStr)
+	pool, err := createPoolWithRetry(ctx, connStr, 5)
 	require.NoError(t, err)
 	defer pool.Close()
 
@@ -244,7 +262,7 @@ func TestStore_Transaction(t *testing.T) {
 	connStr, err := container.ConnectionString(ctx)
 	require.NoError(t, err)
 
-	pool, err := repository.CreatePool(ctx, connStr)
+	pool, err := createPoolWithRetry(ctx, connStr, 5)
 	require.NoError(t, err)
 	defer pool.Close()
 
