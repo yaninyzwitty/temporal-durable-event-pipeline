@@ -58,7 +58,7 @@ func TestStore_User_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	err = repository.RunMigrations(ctx, pool)
+	err = repository.RunMigrations(ctx, pool, "../../db/migrations")
 	require.NoError(t, err)
 
 	store := repository.NewStore(pool)
@@ -102,7 +102,8 @@ func TestStore_User_CRUD(t *testing.T) {
 	})
 
 	t.Run("UpdateUser", func(t *testing.T) {
-		created, _ := store.CreateUser(ctx, "oldname", "old@test.com", "hash")
+		created, err := store.CreateUser(ctx, "oldname", "old@test.com", "hash")
+		require.NoError(t, err)
 
 		updated, err := store.UpdateUser(ctx, created.ID.Bytes, "newname", "new@test.com")
 		require.NoError(t, err)
@@ -111,9 +112,10 @@ func TestStore_User_CRUD(t *testing.T) {
 	})
 
 	t.Run("DeleteUser", func(t *testing.T) {
-		created, _ := store.CreateUser(ctx, "todelete", "delete@test.com", "hash")
+		created, err := store.CreateUser(ctx, "todelete", "delete@test.com", "hash")
+		require.NoError(t, err)
 
-		err := store.DeleteUser(ctx, created.ID.Bytes)
+		err = store.DeleteUser(ctx, created.ID.Bytes)
 		require.NoError(t, err)
 
 		_, err = store.GetUserByID(ctx, created.ID.Bytes)
@@ -135,7 +137,7 @@ func TestStore_Product_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	err = repository.RunMigrations(ctx, pool)
+	err = repository.RunMigrations(ctx, pool, "../../db/migrations")
 	require.NoError(t, err)
 
 	store := repository.NewStore(pool)
@@ -164,8 +166,10 @@ func TestStore_Product_CRUD(t *testing.T) {
 	t.Run("ListProducts", func(t *testing.T) {
 		desc := pgtype.Text{Valid: false}
 		stock := pgtype.Int4{Int32: 0, Valid: true}
-		_, _ = store.CreateProduct(ctx, "P1", desc, "5.00", stock)
-		_, _ = store.CreateProduct(ctx, "P2", desc, "15.00", stock)
+		_, err := store.CreateProduct(ctx, "P1", desc, "5.00", stock)
+		require.NoError(t, err)
+		_, err = store.CreateProduct(ctx, "P2", desc, "15.00", stock)
+		require.NoError(t, err)
 
 		products, err := store.ListProducts(ctx)
 		require.NoError(t, err)
@@ -175,7 +179,8 @@ func TestStore_Product_CRUD(t *testing.T) {
 	t.Run("UpdateProduct", func(t *testing.T) {
 		desc := pgtype.Text{Valid: false}
 		stock := pgtype.Int4{Int32: 0, Valid: true}
-		created, _ := store.CreateProduct(ctx, "OldName", desc, "5.00", stock)
+		created, err := store.CreateProduct(ctx, "OldName", desc, "5.00", stock)
+		require.NoError(t, err)
 
 		desc2 := pgtype.Text{String: "New desc", Valid: true}
 		stock2 := pgtype.Int4{Int32: 20, Valid: true}
@@ -187,9 +192,10 @@ func TestStore_Product_CRUD(t *testing.T) {
 	t.Run("DeleteProduct", func(t *testing.T) {
 		desc := pgtype.Text{Valid: false}
 		stock := pgtype.Int4{Int32: 0, Valid: true}
-		created, _ := store.CreateProduct(ctx, "ToDelete", desc, "5.00", stock)
+		created, err := store.CreateProduct(ctx, "ToDelete", desc, "5.00", stock)
+		require.NoError(t, err)
 
-		err := store.DeleteProduct(ctx, created.ID.Bytes)
+		err = store.DeleteProduct(ctx, created.ID.Bytes)
 		require.NoError(t, err)
 
 		_, err = store.GetProductByID(ctx, created.ID.Bytes)
@@ -211,7 +217,7 @@ func TestStore_Event_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	err = repository.RunMigrations(ctx, pool)
+	err = repository.RunMigrations(ctx, pool, "../../db/migrations")
 	require.NoError(t, err)
 
 	store := repository.NewStore(pool)
@@ -222,7 +228,7 @@ func TestStore_Event_CRUD(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, event.ID.Bytes)
 		assert.Equal(t, "test_event", event.EventType)
-		assert.Equal(t, "pending", event.Status)
+		assert.Equal(t, "pending", event.Status.EventStatus)
 	})
 
 	t.Run("PollPendingEvents", func(t *testing.T) {
@@ -239,7 +245,7 @@ func TestStore_Event_CRUD(t *testing.T) {
 
 		updated, err := store.UpdateEventStatus(ctx, created.ID.Bytes, repository.EventStatusCompleted)
 		require.NoError(t, err)
-		assert.Equal(t, "completed", updated.Status)
+		assert.Equal(t, "completed", updated.Status.EventStatus)
 	})
 
 	t.Run("ListEvents", func(t *testing.T) {
@@ -266,13 +272,16 @@ func TestStore_Transaction(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	err = repository.RunMigrations(ctx, pool)
+	err = repository.RunMigrations(ctx, pool, "../../db/migrations")
 	require.NoError(t, err)
 
 	store := repository.NewStore(pool)
 
-	user, _ := store.CreateUser(ctx, "orderuser", "order@test.com", "hash")
-	product, _ := store.CreateProduct(ctx, "OrderProd", pgtype.Text{Valid: false}, "10.00", pgtype.Int4{Int32: 5, Valid: true})
+	user, err := store.CreateUser(ctx, "orderuser", "order@test.com", "hash")
+	require.NoError(t, err)
+
+	product, err := store.CreateProduct(ctx, "OrderProd", pgtype.Text{Valid: false}, "10.00", pgtype.Int4{Int32: 5, Valid: true})
+	require.NoError(t, err)
 
 	err = store.ExecTx(ctx, func(s *repository.Store) error {
 		order, err := s.CreateOrder(ctx, user.ID.Bytes, "10.00")

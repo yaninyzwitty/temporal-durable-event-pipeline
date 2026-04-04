@@ -3,6 +3,9 @@ package repository
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -27,17 +30,28 @@ func CreatePool(ctx context.Context, connStr string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func RunMigrations(ctx context.Context, pool *pgxpool.Pool) error {
-	migrations := []string{
-		`CREATE TABLE IF NOT EXISTS users (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), username VARCHAR(50) UNIQUE NOT NULL, email VARCHAR(100) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
-		`CREATE TABLE IF NOT EXISTS products (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name VARCHAR(100) NOT NULL, description TEXT, price DECIMAL(10, 2) NOT NULL, stock_quantity INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
-		`CREATE TABLE IF NOT EXISTS orders (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES users(id), total_amount DECIMAL(10, 2) NOT NULL, status VARCHAR(20) DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
-		`CREATE TABLE IF NOT EXISTS order_items (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), order_id UUID NOT NULL REFERENCES orders(id), product_id UUID NOT NULL REFERENCES products(id), quantity INTEGER NOT NULL, unit_price DECIMAL(10, 2) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
-		`CREATE TABLE IF NOT EXISTS events (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), event_type VARCHAR(50) NOT NULL, payload JSONB NOT NULL, status VARCHAR(20) DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, processed_at TIMESTAMP)`,
+func RunMigrations(ctx context.Context, pool *pgxpool.Pool, migrationsDir string) error {
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		return fmt.Errorf("failed to read migrations directory: %w", err)
 	}
-	for _, m := range migrations {
-		if _, err := pool.Exec(ctx, m); err != nil {
-			return fmt.Errorf("migration failed: %w", err)
+
+	var files []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if filepath.Ext(name) == ".sql" {
+			files = append(files, name)
+		}
+	}
+	sort.Strings(files)
+
+	for _, file := range files {
+		content, err := os.ReadFile(filepath.Join(migrationsDir, file))
+		if err != nil {
+			return fmt.Errorf("failed to read migration file %s: %w", file, err)
+		}
+		if _, err := pool.Exec(ctx, string(content)); err != nil {
+			return fmt.Errorf("migration %s failed: %w", file, err)
 		}
 	}
 	return nil
