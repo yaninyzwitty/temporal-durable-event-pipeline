@@ -228,7 +228,7 @@ func TestStore_Event_CRUD(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, event.ID.Bytes)
 		assert.Equal(t, "test_event", event.EventType)
-		assert.Equal(t, "pending", event.Status.EventStatus)
+		assert.Equal(t, repository.EventStatusPending, event.Status.EventStatus)
 	})
 
 	t.Run("PollPendingEvents", func(t *testing.T) {
@@ -245,7 +245,7 @@ func TestStore_Event_CRUD(t *testing.T) {
 
 		updated, err := store.UpdateEventStatus(ctx, created.ID.Bytes, repository.EventStatusCompleted)
 		require.NoError(t, err)
-		assert.Equal(t, "completed", updated.Status.EventStatus)
+		assert.Equal(t, repository.EventStatusCompleted, updated.Status.EventStatus)
 	})
 
 	t.Run("ListEvents", func(t *testing.T) {
