@@ -130,7 +130,7 @@ func TestIntegration_Publisher_ConnectToRedpanda(t *testing.T) {
 
 	ctx := context.Background()
 
-	redpandaContainer, err := redpanda.Run(ctx, "redpanda/redpanda:v26.1.1",
+	redpandaContainer, err := redpanda.Run(ctx, "redpandadata/redpanda:v26.1.1",
 		redpanda.WithAutoCreateTopics())
 	require.NoError(t, err)
 	defer redpandaContainer.Terminate(ctx)
@@ -155,7 +155,7 @@ func TestRedpandaContainer(t *testing.T) {
 
 	ctx := context.Background()
 
-	container, err := redpanda.Run(ctx, "redpanda/redpanda:v26.1.1")
+	container, err := redpanda.Run(ctx, "redpandadata/redpanda:v26.1.1")
 	require.NoError(t, err)
 	defer container.Terminate(ctx)
 
