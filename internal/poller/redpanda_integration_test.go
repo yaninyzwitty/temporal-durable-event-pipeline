@@ -1,0 +1,153 @@
+package poller_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/require"
+	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/poller"
+	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/publisher"
+	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
+
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/modules/redpanda"
+)
+
+func createPoolWithRetry(ctx context.Context, connStr string, maxRetries int) (*pgxpool.Pool, error) {
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		pool, err := repository.CreatePool(ctx, connStr)
+		if err == nil {
+			return pool, nil
+		}
+		lastErr = err
+		if i < maxRetries-1 {
+			backoff := time.Duration(1<<uint(i)) * time.Second
+			time.Sleep(backoff)
+		}
+	}
+	return nil, lastErr
+}
+
+func TestIntegration_OutboxPoller_WithRedpanda(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	ctx := context.Background()
+
+	pgContainer, err := postgres.Run(ctx, "postgres:16-alpine",
+		postgres.WithDatabase("testdb"),
+		postgres.WithUsername("testuser"),
+		postgres.WithPassword("testpass"))
+	require.NoError(t, err)
+	defer pgContainer.Terminate(ctx)
+
+	pgConnStr, err := pgContainer.ConnectionString(ctx)
+	require.NoError(t, err)
+
+	pool, err := createPoolWithRetry(ctx, pgConnStr, 5)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	err = repository.RunMigrations(ctx, pool, "../../db/migrations")
+	require.NoError(t, err)
+
+	store := repository.NewStore(pool)
+
+	redpandaContainer, err := redpanda.Run(ctx, "redpanda/redpanda:v26.1.1",
+		redpanda.WithAutoCreateTopics())
+	require.NoError(t, err)
+	defer redpandaContainer.Terminate(ctx)
+
+	broker, err := redpandaContainer.KafkaSeedBroker(ctx)
+	require.NoError(t, err)
+
+	t.Logf("Redpanda broker: %s", broker)
+
+	redpandaPublisher, err := publisher.NewRedpandaPublisher([]string{broker})
+	require.NoError(t, err)
+	defer redpandaPublisher.Close()
+
+	_ = poller.NewOutboxPoller(
+		store.Queries,
+		redpandaPublisher,
+		"test-events",
+		newSlogLoggerDiscard(),
+		10,
+		time.Millisecond*100,
+	)
+
+	t.Run("should poll and publish events to Redpanda", func(t *testing.T) {
+		event, err := store.CreateEvent(ctx, "test.event", []byte(`{"test":"data"}`))
+		require.NoError(t, err)
+
+		t.Logf("Created event: %s", event.ID.String())
+
+		time.Sleep(500 * time.Millisecond)
+
+		updatedEvent, err := store.GetEventByID(ctx, event.ID.Bytes)
+		require.NoError(t, err)
+		require.Equal(t, repository.EventStatusCompleted, updatedEvent.Status.EventStatus)
+	})
+
+	t.Run("should handle multiple events", func(t *testing.T) {
+		for i := 0; i < 3; i++ {
+			_, err := store.CreateEvent(ctx, "batch.event", []byte(`{"index":`+string(rune('0'+i))+`}`))
+			require.NoError(t, err)
+		}
+
+		time.Sleep(500 * time.Millisecond)
+
+		events, err := store.PollPendingEvents(ctx, 10)
+		require.NoError(t, err)
+		require.Empty(t, events, "all pending events should be processed")
+	})
+}
+
+func TestIntegration_Publisher_ConnectToRedpanda(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	ctx := context.Background()
+
+	redpandaContainer, err := redpanda.Run(ctx, "redpanda/redpanda:v26.1.1",
+		redpanda.WithAutoCreateTopics())
+	require.NoError(t, err)
+	defer redpandaContainer.Terminate(ctx)
+
+	broker, err := redpandaContainer.KafkaSeedBroker(ctx)
+	require.NoError(t, err)
+
+	t.Logf("Redpanda broker: %s", broker)
+
+	redpandaPublisher, err := publisher.NewRedpandaPublisher([]string{broker})
+	require.NoError(t, err)
+	defer redpandaPublisher.Close()
+
+	t.Run("should publish to topic", func(t *testing.T) {
+		err := redpandaPublisher.Publish(ctx, "test-topic", []byte("key"), []byte(`{"message":"hello"}`))
+		require.NoError(t, err)
+	})
+}
+
+func TestRedpandaContainer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	ctx := context.Background()
+
+	container, err := redpanda.Run(ctx, "redpanda/redpanda:v26.1.1")
+	require.NoError(t, err)
+	defer container.Terminate(ctx)
+
+	broker, err := container.KafkaSeedBroker(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, broker)
+
+	t.Logf("Redpanda broker: %s", broker)
+}

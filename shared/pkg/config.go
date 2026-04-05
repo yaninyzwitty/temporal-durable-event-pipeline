@@ -11,6 +11,7 @@ import (
 type Config struct {
 	ServerConfig   ServerConfig   `yaml:"server"`
 	DatabaseConfig DatabaseConfig `yaml:"database"`
+	RedpandaConfig RedpandaConfig `yaml:"redpanda"`
 }
 
 type ServerConfig struct {
@@ -25,6 +26,11 @@ type DatabaseConfig struct {
 	SSLMode  string `yaml:"sslMode"`
 	Name     string `yaml:"name"`
 	Password string `yaml:"password"`
+}
+
+type RedpandaConfig struct {
+	Brokers     []string `yaml:"brokers"`
+	TopicPrefix string   `yaml:"topicPrefix"`
 }
 
 func (c *Config) Load(logger *slog.Logger, path string) error {
