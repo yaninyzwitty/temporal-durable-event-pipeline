@@ -305,7 +305,7 @@ func main() {
 
 	// ---------- EventService ----------
 
-	payload, err := structpb.NewStruct(map[string]interface{}{
+	payload, err := structpb.NewStruct(map[string]any{
 		"action": "user_signup",
 		"email":  "testuser@example.com",
 	})

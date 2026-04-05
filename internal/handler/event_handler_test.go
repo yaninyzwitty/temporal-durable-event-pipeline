@@ -30,7 +30,7 @@ func TestEventHandler_CreateEvent_Success(t *testing.T) {
 	mockStore, handler := setupEventHandler(t)
 	ctx := context.Background()
 
-	payload, _ := structpb.NewStruct(map[string]interface{}{"action": "test"})
+	payload, _ := structpb.NewStruct(map[string]any{"action": "test"})
 	req := &eventv1.CreateEventRequest{
 		EventType: "user.signup",
 		Payload:   payload,

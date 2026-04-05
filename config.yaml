@@ -7,4 +7,8 @@ database:
   user: "dev"
   sslMode: "disable"
   name: "temporal_pipeline"
-  password: "dev"
+  password: "${DB_PASSWORD}"
+redpanda:
+  brokers:
+    - "localhost:19092"
+  topicPrefix: "temporal-pipeline"

@@ -11,6 +11,7 @@ import (
 type Config struct {
 	ServerConfig   ServerConfig   `yaml:"server"`
 	DatabaseConfig DatabaseConfig `yaml:"database"`
+	RedpandaConfig RedpandaConfig `yaml:"redpanda"`
 }
 
 type ServerConfig struct {
@@ -27,6 +28,11 @@ type DatabaseConfig struct {
 	Password string `yaml:"password"`
 }
 
+type RedpandaConfig struct {
+	Brokers     []string `yaml:"brokers"`
+	TopicPrefix string   `yaml:"topicPrefix"`
+}
+
 func (c *Config) Load(logger *slog.Logger, path string) error {
 	// read file
 	file, err := os.ReadFile(path)
@@ -38,7 +44,15 @@ func (c *Config) Load(logger *slog.Logger, path string) error {
 		return fmt.Errorf("failed to unmarshal config file, %w", err)
 	}
 
-	if c.DatabaseConfig.Password == "" {
+	if len(c.RedpandaConfig.Brokers) == 0 {
+		return fmt.Errorf("redpanda.brokers must not be empty")
+	}
+
+	if c.RedpandaConfig.TopicPrefix == "" {
+		return fmt.Errorf("redpanda.topicPrefix must not be empty")
+	}
+
+	if c.DatabaseConfig.Password == "" || c.DatabaseConfig.Password == "${DB_PASSWORD}" {
 		c.DatabaseConfig.Password = os.Getenv("DB_PASSWORD")
 	}
 
