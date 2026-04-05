@@ -17,7 +17,7 @@ import (
 
 func createPoolWithRetry(ctx context.Context, connStr string, maxRetries int) (*pgxpool.Pool, error) {
 	var lastErr error
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
 		pool, err := repository.CreatePool(ctx, connStr)
 		if err == nil {
 			return pool, nil

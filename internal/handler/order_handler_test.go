@@ -242,7 +242,7 @@ func TestOrderHandler_InvalidInputs(t *testing.T) {
 	tests := []struct {
 		name     string
 		method   string
-		req      interface{}
+		req      any
 		wantCode codes.Code
 	}{
 		{

@@ -1,10 +1,10 @@
 //go:build integration
-// +build integration
 
 package poller_test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -17,6 +17,12 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/modules/redpanda"
 )
+
+func skipIntegration(t *testing.T) {
+	if os.Getenv("INTEGRATION") != "true" {
+		t.Skip("skipping integration test (set INTEGRATION=true to run)")
+	}
+}
 
 func createPoolWithRetry(ctx context.Context, connStr string, maxRetries int) (*pgxpool.Pool, error) {
 	var lastErr error
@@ -35,9 +41,7 @@ func createPoolWithRetry(ctx context.Context, connStr string, maxRetries int) (*
 }
 
 func TestIntegration_OutboxPoller_WithRedpanda(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
+	skipIntegration(t)
 
 	ctx := context.Background()
 
@@ -122,9 +126,7 @@ func TestIntegration_OutboxPoller_WithRedpanda(t *testing.T) {
 }
 
 func TestIntegration_Publisher_ConnectToRedpanda(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
+	skipIntegration(t)
 
 	ctx := context.Background()
 
@@ -149,9 +151,7 @@ func TestIntegration_Publisher_ConnectToRedpanda(t *testing.T) {
 }
 
 func TestRedpandaContainer(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
+	skipIntegration(t)
 
 	ctx := context.Background()
 
