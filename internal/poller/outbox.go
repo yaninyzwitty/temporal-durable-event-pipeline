@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
@@ -27,6 +28,7 @@ type OutboxPoller struct {
 	pollLimit   int32
 	interval    time.Duration
 	stopCh      chan struct{}
+	stopOnce    sync.Once
 }
 
 func NewOutboxPoller(
@@ -37,6 +39,16 @@ func NewOutboxPoller(
 	pollLimit int32,
 	interval time.Duration,
 ) *OutboxPoller {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	if interval <= 0 {
+		interval = time.Second
+	}
+	if pollLimit <= 0 {
+		pollLimit = 100
+	}
+
 	return &OutboxPoller{
 		store:       store,
 		publisher:   publisher,
@@ -49,6 +61,10 @@ func NewOutboxPoller(
 }
 
 func (p *OutboxPoller) Start(ctx context.Context) {
+	if p.interval <= 0 {
+		p.interval = time.Second
+	}
+
 	p.logger.Info("starting outbox poller", "pollLimit", p.pollLimit, "interval", p.interval)
 
 	ticker := time.NewTicker(p.interval)
@@ -69,7 +85,9 @@ func (p *OutboxPoller) Start(ctx context.Context) {
 }
 
 func (p *OutboxPoller) Stop() {
-	close(p.stopCh)
+	p.stopOnce.Do(func() {
+		close(p.stopCh)
+	})
 }
 
 func (p *OutboxPoller) poll(ctx context.Context) {

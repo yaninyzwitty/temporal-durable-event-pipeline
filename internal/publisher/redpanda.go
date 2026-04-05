@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -13,6 +15,14 @@ type RedpandaPublisher struct {
 }
 
 func NewRedpandaPublisher(brokers []string) (*RedpandaPublisher, error) {
+	if len(brokers) == 0 {
+		return nil, fmt.Errorf("brokers must not be empty")
+	}
+	for _, broker := range brokers {
+		if strings.TrimSpace(broker) == "" {
+			return nil, fmt.Errorf("brokers contains empty address")
+		}
+	}
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(brokers...),
 		kgo.WithLogger(kgo.BasicLogger(os.Stderr, kgo.LogLevelInfo, func() string { return "" })),
@@ -27,6 +37,12 @@ func NewRedpandaPublisher(brokers []string) (*RedpandaPublisher, error) {
 }
 
 func (p *RedpandaPublisher) Publish(ctx context.Context, topic string, key, value []byte) error {
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+	}
+
 	record := &kgo.Record{
 		Topic: topic,
 		Key:   key,

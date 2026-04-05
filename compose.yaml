@@ -54,6 +54,12 @@ services:
       - 18082:18082
       - 19092:19092
       - 19644:9644
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--brokers", "localhost:19092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   console:
     container_name: redpanda-console
@@ -77,4 +83,5 @@ services:
     ports:
       - 8080:8080
     depends_on:
-      - redpanda-0
+      redpanda-0:
+        condition: service_healthy

@@ -45,9 +45,10 @@ jobs:
       # count=1 disables test caching to ensure tests run fresh each time
       # race detector catches data races which are critical for concurrent code
       # Using -coverprofile for coverage analysis
+      # -short flag skips integration tests (those with testing.Short() check)
       - name: Run unit tests
         run: |
-          go test -race -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+          go test -race -count=1 -short -coverprofile=coverage.out -covermode=atomic ./...
 
       # Upload coverage artifact for later aggregation
       # This allows combining coverage from parallel jobs

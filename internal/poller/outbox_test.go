@@ -59,15 +59,18 @@ func TestNewOutboxPoller(t *testing.T) {
 	t.Run("should accept custom logger", func(t *testing.T) {
 		mockStore := new(MockEventQuerier)
 		mockPublisher := new(MockPublisher)
+		testLogger := newSlogLoggerDiscard()
 
-		_ = poller.NewOutboxPoller(
+		p := poller.NewOutboxPoller(
 			mockStore,
 			mockPublisher,
 			"prefix",
-			newSlogLoggerDiscard(),
+			testLogger,
 			5,
 			50,
 		)
+
+		assert.NotNil(t, p)
 	})
 }
 
@@ -120,7 +123,11 @@ func TestOutboxPoller_ProcessEvent(t *testing.T) {
 		}
 
 		mockPublisher.On("Publish", context.Background(), "prefix.test.event", []byte(eventID.String()), testEvent.Payload).Return(nil)
-		mockStore.On("UpdateEventStatus", context.Background(), mock.Anything).Return(testEvent, nil)
+		mockStore.On("UpdateEventStatus", context.Background(), mock.MatchedBy(func(arg repository.UpdateEventStatusParams) bool {
+			return arg.ID.Bytes == eventID.Bytes &&
+				arg.Status.EventStatus == repository.EventStatusCompleted &&
+				arg.Status.Valid == true
+		})).Return(testEvent, nil)
 
 		p := poller.NewOutboxPoller(
 			mockStore,

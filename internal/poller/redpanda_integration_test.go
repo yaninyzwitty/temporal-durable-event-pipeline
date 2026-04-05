@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package poller_test
 
 import (
@@ -71,7 +74,7 @@ func TestIntegration_OutboxPoller_WithRedpanda(t *testing.T) {
 	require.NoError(t, err)
 	defer redpandaPublisher.Close()
 
-	_ = poller.NewOutboxPoller(
+	p := poller.NewOutboxPoller(
 		store.Queries,
 		redpandaPublisher,
 		"test-events",
@@ -80,17 +83,26 @@ func TestIntegration_OutboxPoller_WithRedpanda(t *testing.T) {
 		time.Millisecond*100,
 	)
 
+	pollerCtx, cancelPoller := context.WithCancel(ctx)
+	go p.Start(pollerCtx)
+	defer func() {
+		cancelPoller()
+		p.Stop()
+	}()
+
 	t.Run("should poll and publish events to Redpanda", func(t *testing.T) {
 		event, err := store.CreateEvent(ctx, "test.event", []byte(`{"test":"data"}`))
 		require.NoError(t, err)
 
 		t.Logf("Created event: %s", event.ID.String())
 
-		time.Sleep(500 * time.Millisecond)
-
-		updatedEvent, err := store.GetEventByID(ctx, event.ID.Bytes)
-		require.NoError(t, err)
-		require.Equal(t, repository.EventStatusCompleted, updatedEvent.Status.EventStatus)
+		require.Eventually(t, func() bool {
+			updatedEvent, err := store.GetEventByID(ctx, event.ID.Bytes)
+			if err != nil {
+				return false
+			}
+			return updatedEvent.Status.EventStatus == repository.EventStatusCompleted
+		}, 5*time.Second, 100*time.Millisecond)
 	})
 
 	t.Run("should handle multiple events", func(t *testing.T) {
@@ -99,11 +111,13 @@ func TestIntegration_OutboxPoller_WithRedpanda(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		time.Sleep(500 * time.Millisecond)
-
-		events, err := store.PollPendingEvents(ctx, 10)
-		require.NoError(t, err)
-		require.Empty(t, events, "all pending events should be processed")
+		require.Eventually(t, func() bool {
+			events, err := store.PollPendingEvents(ctx, 10)
+			if err != nil {
+				return false
+			}
+			return len(events) == 0
+		}, 5*time.Second, 100*time.Millisecond)
 	})
 }
 

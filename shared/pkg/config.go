@@ -44,7 +44,15 @@ func (c *Config) Load(logger *slog.Logger, path string) error {
 		return fmt.Errorf("failed to unmarshal config file, %w", err)
 	}
 
-	if c.DatabaseConfig.Password == "" {
+	if len(c.RedpandaConfig.Brokers) == 0 {
+		return fmt.Errorf("redpanda.brokers must not be empty")
+	}
+
+	if c.RedpandaConfig.TopicPrefix == "" {
+		return fmt.Errorf("redpanda.topicPrefix must not be empty")
+	}
+
+	if c.DatabaseConfig.Password == "" || c.DatabaseConfig.Password == "${DB_PASSWORD}" {
 		c.DatabaseConfig.Password = os.Getenv("DB_PASSWORD")
 	}
 
