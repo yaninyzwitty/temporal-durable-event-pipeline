@@ -25,6 +25,7 @@ func NewRedpandaPublisher(brokers []string) (*RedpandaPublisher, error) {
 	}
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(brokers...),
+		kgo.AllowAutoTopicCreation(),
 		kgo.WithLogger(kgo.BasicLogger(os.Stderr, kgo.LogLevelInfo, func() string { return "" })),
 	}
 
