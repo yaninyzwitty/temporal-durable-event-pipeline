@@ -73,7 +73,7 @@ func (p *OutboxPoller) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			p.logger.Info("context cancelled, stopping poller")
+			p.logger.Info("context canceled, stopping poller")
 			return
 		case <-p.stopCh:
 			p.logger.Info("stop signal received, stopping poller")
