@@ -65,8 +65,7 @@ func TestIntegration_OutboxPoller_WithRedpanda(t *testing.T) {
 	store := repository.NewStore(pool)
 
 	redpandaContainer, err := redpanda.Run(ctx, "redpandadata/redpanda:v26.1.1",
-		redpanda.WithAutoCreateTopics(),
-		redpanda.WithBootstrapPorts(9092))
+		redpanda.WithAutoCreateTopics())
 	require.NoError(t, err)
 	defer redpandaContainer.Terminate(ctx)
 
@@ -132,8 +131,7 @@ func TestIntegration_Publisher_ConnectToRedpanda(t *testing.T) {
 	ctx := context.Background()
 
 	redpandaContainer, err := redpanda.Run(ctx, "redpandadata/redpanda:v26.1.1",
-		redpanda.WithAutoCreateTopics(),
-		redpanda.WithBootstrapPorts(9092))
+		redpanda.WithAutoCreateTopics())
 	require.NoError(t, err)
 	defer redpandaContainer.Terminate(ctx)
 
@@ -158,8 +156,7 @@ func TestRedpandaContainer(t *testing.T) {
 	ctx := context.Background()
 
 	container, err := redpanda.Run(ctx, "redpandadata/redpanda:v26.1.1",
-		redpanda.WithAutoCreateTopics(),
-		redpanda.WithBootstrapPorts(9092))
+		redpanda.WithAutoCreateTopics())
 	require.NoError(t, err)
 	defer container.Terminate(ctx)
 
