@@ -39,6 +39,7 @@ type OutboxListener struct {
 	stopCh      chan struct{}
 	stopOnce    sync.Once
 	wg          sync.WaitGroup
+	cancel      context.CancelFunc
 }
 
 func NewOutboxListener(
@@ -69,14 +70,20 @@ func (l *OutboxListener) Start(ctx context.Context) error {
 
 	l.logger.Info("starting outbox listener")
 
+	runCtx, cancel := context.WithCancel(ctx)
+	l.cancel = cancel
+
 	l.wg.Add(1)
-	go l.run(ctx)
+	go l.run(runCtx)
 
 	return nil
 }
 
 func (l *OutboxListener) Stop() {
 	l.stopOnce.Do(func() {
+		if l.cancel != nil {
+			l.cancel()
+		}
 		close(l.stopCh)
 	})
 	l.wg.Wait()
