@@ -90,6 +90,7 @@ func TestIntegration_OutboxListener_WithRedpanda(t *testing.T) {
 		redpandaPublisher,
 		"test-events",
 		newSlogLoggerDiscard(),
+		100,
 	)
 
 	listenerCtx, cancelListener := context.WithCancel(ctx)
