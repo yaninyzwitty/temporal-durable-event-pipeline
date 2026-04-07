@@ -40,7 +40,7 @@ func createPoolWithRetry(ctx context.Context, connStr string, maxRetries int) (*
 	return nil, lastErr
 }
 
-func TestIntegration_OutboxPoller_WithRedpanda(t *testing.T) {
+func TestIntegration_OutboxListener_WithRedpanda(t *testing.T) {
 	skipIntegration(t)
 
 	ctx := context.Background()
@@ -78,23 +78,29 @@ func TestIntegration_OutboxPoller_WithRedpanda(t *testing.T) {
 	require.NoError(t, err)
 	defer redpandaPublisher.Close()
 
-	p := poller.NewOutboxPoller(
-		store.Queries,
+	conn, err := pool.Acquire(ctx)
+	require.NoError(t, err)
+	defer conn.Release()
+
+	pgListener := poller.NewPGListener(conn.Conn(), "events_notification", newSlogLoggerDiscard())
+
+	outboxListener := poller.NewOutboxListener(
+		store,
+		pgListener,
 		redpandaPublisher,
 		"test-events",
 		newSlogLoggerDiscard(),
-		10,
-		time.Millisecond*100,
 	)
 
-	pollerCtx, cancelPoller := context.WithCancel(ctx)
-	go p.Start(pollerCtx)
+	listenerCtx, cancelListener := context.WithCancel(ctx)
+	err = outboxListener.Start(listenerCtx)
+	require.NoError(t, err)
 	defer func() {
-		cancelPoller()
-		p.Stop()
+		cancelListener()
+		outboxListener.Stop()
 	}()
 
-	t.Run("should poll and publish events to Redpanda", func(t *testing.T) {
+	t.Run("should receive notification and publish events to Redpanda", func(t *testing.T) {
 		event, err := store.CreateEvent(ctx, "test.event", []byte(`{"test":"data"}`))
 		require.NoError(t, err)
 
@@ -161,7 +167,7 @@ func TestRedpandaContainer(t *testing.T) {
 	defer container.Terminate(ctx)
 
 	broker, err := container.KafkaSeedBroker(ctx)
-	require.NoError(t, err)
+	require.NoError(t, broker)
 	require.NotEmpty(t, broker)
 
 	t.Logf("Redpanda broker: %s", broker)
