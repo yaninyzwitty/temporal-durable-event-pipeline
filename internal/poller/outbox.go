@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -28,6 +29,7 @@ type NotificationListener interface {
 	Start(ctx context.Context) error
 	WaitForNotification(ctx context.Context) (*pgconn.Notification, error)
 	Close(ctx context.Context) error
+	Reconnect(ctx context.Context) error
 }
 
 type OutboxListener struct {
@@ -40,7 +42,10 @@ type OutboxListener struct {
 	stopOnce    sync.Once
 	wg          sync.WaitGroup
 	cancel      context.CancelFunc
+	pollLimit   int32
 }
+
+const defaultPollLimit = 100
 
 func NewOutboxListener(
 	store EventStore,
@@ -48,9 +53,13 @@ func NewOutboxListener(
 	publisher Publisher,
 	topicPrefix string,
 	logger *slog.Logger,
+	pollLimit int32,
 ) *OutboxListener {
 	if logger == nil {
 		logger = slog.Default()
+	}
+	if pollLimit <= 0 {
+		pollLimit = defaultPollLimit
 	}
 
 	return &OutboxListener{
@@ -60,14 +69,11 @@ func NewOutboxListener(
 		topicPrefix: topicPrefix,
 		logger:      logger,
 		stopCh:      make(chan struct{}),
+		pollLimit:   pollLimit,
 	}
 }
 
 func (l *OutboxListener) Start(ctx context.Context) error {
-	if err := l.listener.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start listener: %w", err)
-	}
-
 	l.logger.Info("starting outbox listener")
 
 	runCtx, cancel := context.WithCancel(ctx)
@@ -93,6 +99,8 @@ func (l *OutboxListener) Stop() {
 func (l *OutboxListener) run(ctx context.Context) {
 	defer l.wg.Done()
 
+	l.scanBacklog(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -111,7 +119,17 @@ func (l *OutboxListener) run(ctx context.Context) {
 			if ctx.Err() != nil || l.isStopped() {
 				return
 			}
-			l.logger.Error("failed to wait for notification", "error", err)
+			l.logger.Error("failed to wait for notification, attempting reconnect", "error", err)
+			if err := l.reconnectAndScan(ctx); err != nil {
+				l.logger.Error("reconnection failed, backing off", "error", err)
+				select {
+				case <-ctx.Done():
+					return
+				case <-l.stopCh:
+					return
+				case <-time.After(5 * time.Second):
+				}
+			}
 			continue
 		}
 
@@ -121,6 +139,39 @@ func (l *OutboxListener) run(ctx context.Context) {
 
 		l.handleNotification(ctx, notif)
 	}
+}
+
+func (l *OutboxListener) scanBacklog(ctx context.Context) {
+	l.logger.Info("scanning for missed events")
+
+	events, err := l.store.PollPendingEvents(ctx, l.pollLimit)
+	if err != nil {
+		l.logger.Error("failed to scan backlog", "error", err)
+		return
+	}
+
+	l.logger.Debug("scanned backlog events", "count", len(events))
+
+	for _, event := range events {
+		l.ProcessEvent(ctx, event)
+	}
+}
+
+func (l *OutboxListener) reconnectAndScan(ctx context.Context) error {
+	l.logger.Info("attempting to reconnect")
+
+	if err := l.listener.Close(context.Background()); err != nil {
+		l.logger.Warn("failed to close old listener", "error", err)
+	}
+
+	if err := l.listener.Reconnect(ctx); err != nil {
+		return fmt.Errorf("failed to reconnect: %w", err)
+	}
+
+	l.logger.Info("reconnected, scanning backlog")
+	l.scanBacklog(ctx)
+
+	return nil
 }
 
 func (l *OutboxListener) isStopped() bool {

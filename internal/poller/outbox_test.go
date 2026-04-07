@@ -73,6 +73,11 @@ func (m *MockListener) Close(ctx context.Context) error {
 	return args.Error(0)
 }
 
+func (m *MockListener) Reconnect(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
 func TestNewOutboxListener(t *testing.T) {
 	t.Run("should create listener with correct config", func(t *testing.T) {
 		mockStore := new(MockEventStore)
@@ -85,6 +90,7 @@ func TestNewOutboxListener(t *testing.T) {
 			mockPublisher,
 			"test-prefix",
 			newSlogLoggerDiscard(),
+			100,
 		)
 
 		assert.NotNil(t, l)
@@ -102,6 +108,7 @@ func TestNewOutboxListener(t *testing.T) {
 			mockPublisher,
 			"prefix",
 			testLogger,
+			50,
 		)
 
 		assert.NotNil(t, l)
@@ -120,6 +127,7 @@ func TestOutboxListener_TopicForEventType(t *testing.T) {
 			mockPublisher,
 			"temporal-pipeline",
 			newSlogLoggerDiscard(),
+			100,
 		)
 
 		topic := l.TopicForEventType("order.created")
@@ -137,6 +145,7 @@ func TestOutboxListener_TopicForEventType(t *testing.T) {
 			mockPublisher,
 			"events",
 			newSlogLoggerDiscard(),
+			100,
 		)
 
 		assert.Equal(t, "events.payment.succeeded", l.TopicForEventType("payment.succeeded"))
@@ -170,6 +179,7 @@ func TestOutboxListener_ProcessEvent(t *testing.T) {
 			mockPublisher,
 			"prefix",
 			newSlogLoggerDiscard(),
+			100,
 		)
 
 		l.ProcessEvent(context.Background(), testEvent)
@@ -199,6 +209,7 @@ func TestOutboxListener_ProcessEvent(t *testing.T) {
 			mockPublisher,
 			"prefix",
 			newSlogLoggerDiscard(),
+			100,
 		)
 
 		l.ProcessEvent(context.Background(), testEvent)

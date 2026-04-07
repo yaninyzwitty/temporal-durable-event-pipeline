@@ -9,17 +9,20 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type Listener interface {
-	WaitForNotification(ctx context.Context) (*pgconn.Notification, error)
-	Close(ctx context.Context) error
+type PGListenerConfig struct {
+	ConnStr string
+	Channel string
+	Logger  *slog.Logger
 }
 
 type PGListener struct {
+	cfg      PGListenerConfig
 	conn     *pgx.Conn
 	channel  string
 	logger   *slog.Logger
 	stopCh   chan struct{}
 	stopOnce sync.Once
+	mu       sync.Mutex
 }
 
 func NewPGListener(conn *pgx.Conn, channel string, logger *slog.Logger) *PGListener {
@@ -36,6 +39,28 @@ func NewPGListener(conn *pgx.Conn, channel string, logger *slog.Logger) *PGListe
 		logger:  logger,
 		stopCh:  make(chan struct{}),
 	}
+}
+
+func NewPGListenerFromConfig(cfg PGListenerConfig) (*PGListener, error) {
+	if cfg.Logger == nil {
+		cfg.Logger = slog.Default()
+	}
+	if cfg.Channel == "" {
+		cfg.Channel = "events_notification"
+	}
+
+	conn, err := pgx.Connect(context.Background(), cfg.ConnStr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PGListener{
+		cfg:     cfg,
+		conn:    conn,
+		channel: cfg.Channel,
+		logger:  cfg.Logger,
+		stopCh:  make(chan struct{}),
+	}, nil
 }
 
 func (l *PGListener) Start(ctx context.Context) error {
@@ -70,9 +95,43 @@ func (l *PGListener) Stop() {
 }
 
 func (l *PGListener) Close(ctx context.Context) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.conn == nil {
+		return nil
+	}
+
 	_, err := l.conn.Exec(ctx, "UNLISTEN "+l.channel)
 	if err != nil {
 		l.logger.Warn("failed to unlisten", "error", err)
 	}
-	return l.conn.Close(ctx)
+	closeErr := l.conn.Close(ctx)
+	l.conn = nil
+	return closeErr
+}
+
+func (l *PGListener) Reconnect(ctx context.Context) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.logger.Info("reconnecting to PostgreSQL", "channel", l.channel)
+
+	if l.conn != nil {
+		l.conn.Close(context.Background())
+	}
+
+	var err error
+	l.conn, err = pgx.Connect(ctx, l.cfg.ConnStr)
+	if err != nil {
+		return err
+	}
+
+	_, err = l.conn.Exec(ctx, "LISTEN "+l.channel)
+	if err != nil {
+		return err
+	}
+
+	l.logger.Info("reconnected and subscribed to channel", "channel", l.channel)
+	return nil
 }

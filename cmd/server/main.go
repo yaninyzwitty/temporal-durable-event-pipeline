@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -62,13 +63,18 @@ func main() {
 	}
 	defer redpandaPub.Close()
 
-	conn, err := pool.Acquire(baseCtx)
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		dbConfig.User, dbConfig.Password, dbConfig.Host, dbConfig.Port, dbConfig.Name, dbConfig.SSLMode)
+
+	pgListener, err := poller.NewPGListenerFromConfig(poller.PGListenerConfig{
+		ConnStr: connStr,
+		Channel: "events_notification",
+		Logger:  log,
+	})
 	if err != nil {
-		log.Error("failed to acquire connection for listener", "error", err)
+		log.Error("failed to create PostgreSQL listener", "error", err)
 		os.Exit(1)
 	}
-
-	pgListener := poller.NewPGListener(conn.Conn(), "events_notification", log)
 
 	outboxListener := poller.NewOutboxListener(
 		store,
@@ -76,6 +82,7 @@ func main() {
 		redpandaPub,
 		config.RedpandaConfig.TopicPrefix,
 		log,
+		100,
 	)
 
 	srv := server.New(config.ServerConfig.Port, store, config.ServerConfig.Env, log)
@@ -96,7 +103,7 @@ func main() {
 	done := make(chan struct{})
 	go func() {
 		srv.GracefulStop()
-		conn.Release()
+		pgListener.Close(context.Background())
 		close(done)
 	}()
 	select {
@@ -105,7 +112,7 @@ func main() {
 	case <-time.After(30 * time.Second):
 		log.Warn("graceful shutdown timed out, forcing exit")
 		srv.Stop()
-		conn.Release()
+		pgListener.Close(context.Background())
 	}
 	log.Info("server stopped")
 }
