@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -25,94 +27,127 @@ func (m *MockPublisher) Close() error {
 	return args.Error(0)
 }
 
-type MockEventQuerier struct {
+type MockEventStore struct {
 	mock.Mock
 }
 
-func (m *MockEventQuerier) PollPendingEvents(ctx context.Context, limit int32) ([]repository.Event, error) {
+func (m *MockEventStore) PollPendingEvents(ctx context.Context, limit int32) ([]repository.Event, error) {
 	args := m.Called(ctx, limit)
 	return args.Get(0).([]repository.Event), args.Error(1)
 }
 
-func (m *MockEventQuerier) UpdateEventStatus(ctx context.Context, arg repository.UpdateEventStatusParams) (repository.Event, error) {
+func (m *MockEventStore) GetEventByID(ctx context.Context, id uuid.UUID) (repository.Event, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(repository.Event), args.Error(1)
+}
+
+func (m *MockEventStore) UpdateEventStatusWithParams(ctx context.Context, arg repository.UpdateEventStatusParams) (repository.Event, error) {
 	args := m.Called(ctx, arg)
 	return args.Get(0).(repository.Event), args.Error(1)
 }
 
-func TestNewOutboxPoller(t *testing.T) {
-	t.Run("should create poller with correct config", func(t *testing.T) {
-		mockStore := new(MockEventQuerier)
+func (m *MockEventStore) MarkEventFailed(ctx context.Context, event repository.Event) (repository.Event, error) {
+	args := m.Called(ctx, event)
+	return args.Get(0).(repository.Event), args.Error(1)
+}
+
+type MockListener struct {
+	mock.Mock
+}
+
+func (m *MockListener) Start(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockListener) WaitForNotification(ctx context.Context) (*pgconn.Notification, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*pgconn.Notification), args.Error(1)
+}
+
+func (m *MockListener) Close(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func TestNewOutboxListener(t *testing.T) {
+	t.Run("should create listener with correct config", func(t *testing.T) {
+		mockStore := new(MockEventStore)
+		mockListener := new(MockListener)
 		mockPublisher := new(MockPublisher)
 
-		p := poller.NewOutboxPoller(
+		l := poller.NewOutboxListener(
 			mockStore,
+			mockListener,
 			mockPublisher,
 			"test-prefix",
 			newSlogLoggerDiscard(),
-			10,
-			100,
 		)
 
-		assert.NotNil(t, p)
+		assert.NotNil(t, l)
 	})
 
 	t.Run("should accept custom logger", func(t *testing.T) {
-		mockStore := new(MockEventQuerier)
+		mockStore := new(MockEventStore)
+		mockListener := new(MockListener)
 		mockPublisher := new(MockPublisher)
 		testLogger := newSlogLoggerDiscard()
 
-		p := poller.NewOutboxPoller(
+		l := poller.NewOutboxListener(
 			mockStore,
+			mockListener,
 			mockPublisher,
 			"prefix",
 			testLogger,
-			5,
-			50,
 		)
 
-		assert.NotNil(t, p)
+		assert.NotNil(t, l)
 	})
 }
 
-func TestOutboxPoller_TopicForEventType(t *testing.T) {
+func TestOutboxListener_TopicForEventType(t *testing.T) {
 	t.Run("should format topic with prefix", func(t *testing.T) {
-		mockStore := new(MockEventQuerier)
+		mockStore := new(MockEventStore)
+		mockListener := new(MockListener)
 		mockPublisher := new(MockPublisher)
 
-		p := poller.NewOutboxPoller(
+		l := poller.NewOutboxListener(
 			mockStore,
+			mockListener,
 			mockPublisher,
 			"temporal-pipeline",
 			newSlogLoggerDiscard(),
-			10,
-			100,
 		)
 
-		topic := p.TopicForEventType("order.created")
+		topic := l.TopicForEventType("order.created")
 		assert.Equal(t, "temporal-pipeline.order.created", topic)
 	})
 
 	t.Run("should handle different event types", func(t *testing.T) {
-		mockStore := new(MockEventQuerier)
+		mockStore := new(MockEventStore)
+		mockListener := new(MockListener)
 		mockPublisher := new(MockPublisher)
 
-		p := poller.NewOutboxPoller(
+		l := poller.NewOutboxListener(
 			mockStore,
+			mockListener,
 			mockPublisher,
 			"events",
 			newSlogLoggerDiscard(),
-			10,
-			100,
 		)
 
-		assert.Equal(t, "events.payment.succeeded", p.TopicForEventType("payment.succeeded"))
-		assert.Equal(t, "events.order.updated", p.TopicForEventType("order.updated"))
+		assert.Equal(t, "events.payment.succeeded", l.TopicForEventType("payment.succeeded"))
+		assert.Equal(t, "events.order.updated", l.TopicForEventType("order.updated"))
 	})
 }
 
-func TestOutboxPoller_ProcessEvent(t *testing.T) {
+func TestOutboxListener_ProcessEvent(t *testing.T) {
 	t.Run("should publish and update status on success", func(t *testing.T) {
-		mockStore := new(MockEventQuerier)
+		mockStore := new(MockEventStore)
+		mockListener := new(MockListener)
 		mockPublisher := new(MockPublisher)
 
 		eventID := pgtype.UUID{Bytes: [16]byte{1, 2, 3, 4}, Valid: true}
@@ -123,29 +158,29 @@ func TestOutboxPoller_ProcessEvent(t *testing.T) {
 		}
 
 		mockPublisher.On("Publish", context.Background(), "prefix.test.event", []byte(eventID.String()), testEvent.Payload).Return(nil)
-		mockStore.On("UpdateEventStatus", context.Background(), mock.MatchedBy(func(arg repository.UpdateEventStatusParams) bool {
+		mockStore.On("UpdateEventStatusWithParams", context.Background(), mock.MatchedBy(func(arg repository.UpdateEventStatusParams) bool {
 			return arg.ID.Bytes == eventID.Bytes &&
 				arg.Status.EventStatus == repository.EventStatusCompleted &&
 				arg.Status.Valid == true
 		})).Return(testEvent, nil)
 
-		p := poller.NewOutboxPoller(
+		l := poller.NewOutboxListener(
 			mockStore,
+			mockListener,
 			mockPublisher,
 			"prefix",
 			newSlogLoggerDiscard(),
-			10,
-			100,
 		)
 
-		p.ProcessEvent(context.Background(), testEvent)
+		l.ProcessEvent(context.Background(), testEvent)
 
 		mockPublisher.AssertExpectations(t)
 		mockStore.AssertExpectations(t)
 	})
 
-	t.Run("should not update status when publish fails", func(t *testing.T) {
-		mockStore := new(MockEventQuerier)
+	t.Run("should mark failed when publish fails", func(t *testing.T) {
+		mockStore := new(MockEventStore)
+		mockListener := new(MockListener)
 		mockPublisher := new(MockPublisher)
 
 		eventID := pgtype.UUID{Bytes: [16]byte{1, 2, 3, 4}, Valid: true}
@@ -156,19 +191,19 @@ func TestOutboxPoller_ProcessEvent(t *testing.T) {
 		}
 
 		mockPublisher.On("Publish", context.Background(), "prefix.test.event", []byte(eventID.String()), testEvent.Payload).Return(assert.AnError)
+		mockStore.On("MarkEventFailed", context.Background(), testEvent).Return(testEvent, nil)
 
-		p := poller.NewOutboxPoller(
+		l := poller.NewOutboxListener(
 			mockStore,
+			mockListener,
 			mockPublisher,
 			"prefix",
 			newSlogLoggerDiscard(),
-			10,
-			100,
 		)
 
-		p.ProcessEvent(context.Background(), testEvent)
+		l.ProcessEvent(context.Background(), testEvent)
 
 		mockPublisher.AssertExpectations(t)
-		mockStore.AssertNotCalled(t, "UpdateEventStatus")
+		mockStore.AssertExpectations(t)
 	})
 }

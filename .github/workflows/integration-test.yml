@@ -7,12 +7,12 @@ on:
       go-version:
         type: string
         required: false
-        default: ''
+        default: ""
         description: "Go version to use (leave empty to use go.mod)"
       cache-key:
         type: string
         required: false
-        default: ''
+        default: ""
         description: "Cache key (deprecated, use cache: true instead)"
       coverage-artifact:
         type: string
@@ -23,6 +23,7 @@ on:
 jobs:
   integration-test:
     name: Integration Tests
+    # github hosted runner
     runs-on: ubuntu-latest
     env:
       GOTOOLCHAIN: local

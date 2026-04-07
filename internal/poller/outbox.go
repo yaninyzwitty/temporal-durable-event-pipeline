@@ -2,11 +2,13 @@ package poller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sync"
-	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
 )
 
@@ -15,108 +17,155 @@ type Publisher interface {
 	Close() error
 }
 
-type EventQuerier interface {
+type EventStore interface {
 	PollPendingEvents(ctx context.Context, limit int32) ([]repository.Event, error)
-	UpdateEventStatus(ctx context.Context, arg repository.UpdateEventStatusParams) (repository.Event, error)
+	GetEventByID(ctx context.Context, id uuid.UUID) (repository.Event, error)
+	UpdateEventStatusWithParams(ctx context.Context, arg repository.UpdateEventStatusParams) (repository.Event, error)
+	MarkEventFailed(ctx context.Context, id repository.Event) (repository.Event, error)
 }
 
-type OutboxPoller struct {
-	store       EventQuerier
+type NotificationListener interface {
+	Start(ctx context.Context) error
+	WaitForNotification(ctx context.Context) (*pgconn.Notification, error)
+	Close(ctx context.Context) error
+}
+
+type OutboxListener struct {
+	store       EventStore
+	listener    NotificationListener
 	publisher   Publisher
 	topicPrefix string
 	logger      *slog.Logger
-	pollLimit   int32
-	interval    time.Duration
 	stopCh      chan struct{}
 	stopOnce    sync.Once
+	wg          sync.WaitGroup
 }
 
-func NewOutboxPoller(
-	store EventQuerier,
+func NewOutboxListener(
+	store EventStore,
+	listener NotificationListener,
 	publisher Publisher,
 	topicPrefix string,
 	logger *slog.Logger,
-	pollLimit int32,
-	interval time.Duration,
-) *OutboxPoller {
+) *OutboxListener {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	if interval <= 0 {
-		interval = time.Second
-	}
-	if pollLimit <= 0 {
-		pollLimit = 100
-	}
 
-	return &OutboxPoller{
+	return &OutboxListener{
 		store:       store,
+		listener:    listener,
 		publisher:   publisher,
 		topicPrefix: topicPrefix,
 		logger:      logger,
-		pollLimit:   pollLimit,
-		interval:    interval,
 		stopCh:      make(chan struct{}),
 	}
 }
 
-func (p *OutboxPoller) Start(ctx context.Context) {
-	if p.interval <= 0 {
-		p.interval = time.Second
+func (l *OutboxListener) Start(ctx context.Context) error {
+	if err := l.listener.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start listener: %w", err)
 	}
 
-	p.logger.Info("starting outbox poller", "pollLimit", p.pollLimit, "interval", p.interval)
+	l.logger.Info("starting outbox listener")
 
-	ticker := time.NewTicker(p.interval)
-	defer ticker.Stop()
+	l.wg.Add(1)
+	go l.run(ctx)
+
+	return nil
+}
+
+func (l *OutboxListener) Stop() {
+	l.stopOnce.Do(func() {
+		close(l.stopCh)
+	})
+	l.wg.Wait()
+	l.logger.Info("outbox listener stopped")
+}
+
+func (l *OutboxListener) run(ctx context.Context) {
+	defer l.wg.Done()
 
 	for {
 		select {
 		case <-ctx.Done():
-			p.logger.Info("context canceled, stopping poller")
+			l.logger.Info("context canceled, stopping listener")
+			l.listener.Close(context.Background())
 			return
-		case <-p.stopCh:
-			p.logger.Info("stop signal received, stopping poller")
+		case <-l.stopCh:
+			l.logger.Info("stop signal received")
+			l.listener.Close(context.Background())
 			return
-		case <-ticker.C:
-			p.poll(ctx)
+		default:
 		}
+
+		notif, err := l.listener.WaitForNotification(ctx)
+		if err != nil {
+			if ctx.Err() != nil || l.isStopped() {
+				return
+			}
+			l.logger.Error("failed to wait for notification", "error", err)
+			continue
+		}
+
+		if notif == nil {
+			continue
+		}
+
+		l.handleNotification(ctx, notif)
 	}
 }
 
-func (p *OutboxPoller) Stop() {
-	p.stopOnce.Do(func() {
-		close(p.stopCh)
-	})
+func (l *OutboxListener) isStopped() bool {
+	select {
+	case <-l.stopCh:
+		return true
+	default:
+		return false
+	}
 }
 
-func (p *OutboxPoller) poll(ctx context.Context) {
-	events, err := p.store.PollPendingEvents(ctx, p.pollLimit)
+func (l *OutboxListener) handleNotification(ctx context.Context, notif *pgconn.Notification) {
+	var payload struct {
+		ID        string `json:"id"`
+		EventType string `json:"event_type"`
+		Status    string `json:"status"`
+	}
+
+	if err := json.Unmarshal([]byte(notif.Payload), &payload); err != nil {
+		l.logger.Error("failed to parse notification payload", "error", err, "payload", notif.Payload)
+		return
+	}
+
+	l.logger.Debug("received notification for event", "id", payload.ID, "type", payload.EventType)
+
+	eventID, err := uuid.Parse(payload.ID)
 	if err != nil {
-		p.logger.Error("failed to poll pending events", "error", err)
+		l.logger.Error("failed to parse event ID", "error", err, "id", payload.ID)
 		return
 	}
 
-	if len(events) == 0 {
+	event, err := l.store.GetEventByID(ctx, eventID)
+	if err != nil {
+		l.logger.Error("failed to get event by ID", "error", err, "id", payload.ID)
 		return
 	}
 
-	p.logger.Debug("polled events", "count", len(events))
-
-	for _, event := range events {
-		p.ProcessEvent(ctx, event)
-	}
+	l.ProcessEvent(ctx, event)
 }
 
-func (p *OutboxPoller) ProcessEvent(ctx context.Context, event repository.Event) {
-	topic := p.TopicForEventType(event.EventType)
+func (l *OutboxListener) ProcessEvent(ctx context.Context, event repository.Event) {
+	topic := l.TopicForEventType(event.EventType)
 
-	if err := p.publisher.Publish(ctx, topic, []byte(event.ID.String()), event.Payload); err != nil {
-		p.logger.Error("failed to publish event", "error", err, "eventID", event.ID, "topic", topic)
+	if err := l.publisher.Publish(ctx, topic, []byte(event.ID.String()), event.Payload); err != nil {
+		l.logger.Error("failed to publish event", "error", err, "eventID", event.ID, "topic", topic)
+		if _, updateErr := l.store.MarkEventFailed(ctx, event); updateErr != nil {
+			l.logger.Error("failed to mark event as failed", "error", updateErr, "eventID", event.ID)
+		}
 		return
 	}
 
-	updatedEvent, err := p.store.UpdateEventStatus(ctx, repository.UpdateEventStatusParams{
+	updatedEvent, err := l.store.UpdateEventStatusWithParams(ctx, repository.UpdateEventStatusParams{
 		ID: event.ID,
 		Status: repository.NullEventStatus{
 			EventStatus: repository.EventStatusCompleted,
@@ -124,13 +173,13 @@ func (p *OutboxPoller) ProcessEvent(ctx context.Context, event repository.Event)
 		},
 	})
 	if err != nil {
-		p.logger.Error("failed to mark event as completed", "error", err, "eventID", event.ID)
+		l.logger.Error("failed to mark event as completed", "error", err, "eventID", event.ID)
 		return
 	}
 
-	p.logger.Debug("event published successfully", "eventID", updatedEvent.ID, "eventType", updatedEvent.EventType)
+	l.logger.Debug("event published successfully", "eventID", updatedEvent.ID, "eventType", updatedEvent.EventType)
 }
 
-func (p *OutboxPoller) TopicForEventType(eventType string) string {
-	return fmt.Sprintf("%s.%s", p.topicPrefix, eventType)
+func (l *OutboxListener) TopicForEventType(eventType string) string {
+	return fmt.Sprintf("%s.%s", l.topicPrefix, eventType)
 }

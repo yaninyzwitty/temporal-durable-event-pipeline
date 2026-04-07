@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/db"
+	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/poller"
+	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/publisher"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/server"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/shared/logger"
@@ -30,7 +32,6 @@ func main() {
 
 	var config pkg.Config
 	if err := config.Load(log, *configPath); err != nil {
-		//nolint:gocritic // cancel is called explicitly before os.Exit
 		cancel()
 		log.Error("failed to load config", "error", err)
 		os.Exit(1)
@@ -53,7 +54,32 @@ func main() {
 	defer pool.Close()
 
 	store := repository.NewStore(pool)
+
+	redpandaPub, err := publisher.NewRedpandaPublisher(config.RedpandaConfig.Brokers)
+	if err != nil {
+		log.Error("failed to create redpanda publisher", "error", err)
+		os.Exit(1)
+	}
+	defer redpandaPub.Close()
+
+	conn, err := pool.Acquire(baseCtx)
+	if err != nil {
+		log.Error("failed to acquire connection for listener", "error", err)
+		os.Exit(1)
+	}
+
+	pgListener := poller.NewPGListener(conn.Conn(), "events_notification", log)
+
+	outboxListener := poller.NewOutboxListener(
+		store,
+		pgListener,
+		redpandaPub,
+		config.RedpandaConfig.TopicPrefix,
+		log,
+	)
+
 	srv := server.New(config.ServerConfig.Port, store, config.ServerConfig.Env, log)
+	srv.SetOutboxListener(outboxListener)
 
 	lis, err := srv.Start()
 	if err != nil {
@@ -70,8 +96,8 @@ func main() {
 	done := make(chan struct{})
 	go func() {
 		srv.GracefulStop()
+		conn.Release()
 		close(done)
-
 	}()
 	select {
 	case <-done:
@@ -79,6 +105,7 @@ func main() {
 	case <-time.After(30 * time.Second):
 		log.Warn("graceful shutdown timed out, forcing exit")
 		srv.Stop()
+		conn.Release()
 	}
 	log.Info("server stopped")
 }

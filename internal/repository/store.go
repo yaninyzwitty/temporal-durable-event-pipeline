@@ -283,6 +283,21 @@ func (s *Store) GetEventByID(ctx context.Context, id uuid.UUID) (Event, error) {
 	return s.Queries.GetEventByID(ctx, toPgUUID(id))
 }
 
+func (s *Store) GetEventByIDString(ctx context.Context, id string) (Event, error) {
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return Event{}, fmt.Errorf("invalid event ID: %w", err)
+	}
+	return s.Queries.GetEventByID(ctx, toPgUUID(uid))
+}
+
+func (s *Store) MarkEventFailed(ctx context.Context, event Event) (Event, error) {
+	return s.Queries.UpdateEventStatus(ctx, UpdateEventStatusParams{
+		ID:     event.ID,
+		Status: NullEventStatus{EventStatus: EventStatusFailed, Valid: true},
+	})
+}
+
 func (s *Store) PollPendingEvents(ctx context.Context, limit int32) ([]Event, error) {
 	return s.Queries.PollPendingEvents(ctx, limit)
 }
@@ -297,6 +312,10 @@ func (s *Store) UpdateEventStatus(ctx context.Context, id uuid.UUID, status Even
 		ID:     toPgUUID(id),
 		Status: NullEventStatus{EventStatus: status, Valid: true},
 	})
+}
+
+func (s *Store) UpdateEventStatusWithParams(ctx context.Context, params UpdateEventStatusParams) (Event, error) {
+	return s.Queries.UpdateEventStatus(ctx, params)
 }
 
 func (s *Store) ListEvents(ctx context.Context, limit, offset int32) ([]Event, error) {

@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
 
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/handler"
+	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/poller"
 	"github.com/yaninyzwitty/temporal-durable-event-pipeline/internal/repository"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -19,9 +21,10 @@ import (
 )
 
 type Server struct {
-	grpcServer *grpc.Server
-	port       int
-	logger     *slog.Logger
+	grpcServer     *grpc.Server
+	port           int
+	logger         *slog.Logger
+	outboxListener *poller.OutboxListener
 }
 
 func New(port int, store *repository.Store, env string, logger *slog.Logger, opts ...grpc.ServerOption) *Server {
@@ -52,7 +55,13 @@ func New(port int, store *repository.Store, env string, logger *slog.Logger, opt
 	}
 }
 
+func (s *Server) SetOutboxListener(listener *poller.OutboxListener) {
+	s.outboxListener = listener
+}
+
 func (s *Server) Start() (net.Listener, error) {
+	ctx := context.Background()
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen on port %d: %w", s.port, err)
@@ -65,15 +74,30 @@ func (s *Server) Start() (net.Listener, error) {
 		}
 	}()
 
+	if s.outboxListener != nil {
+		s.logger.Info("starting outbox listener")
+		if err := s.outboxListener.Start(ctx); err != nil {
+			s.logger.Error("failed to start outbox listener", "error", err)
+		}
+	}
+
 	return lis, nil
 }
 
 func (s *Server) GracefulStop() {
 	s.logger.Info("shutting down gRPC server gracefully")
+	if s.outboxListener != nil {
+		s.logger.Info("stopping outbox listener")
+		s.outboxListener.Stop()
+	}
 	s.grpcServer.GracefulStop()
 }
 
 func (s *Server) Stop() {
 	s.logger.Info("stopping gRPC server")
+	if s.outboxListener != nil {
+		s.logger.Info("stopping outbox listener")
+		s.outboxListener.Stop()
+	}
 	s.grpcServer.Stop()
 }
