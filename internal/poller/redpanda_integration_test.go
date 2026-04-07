@@ -167,7 +167,7 @@ func TestRedpandaContainer(t *testing.T) {
 	defer container.Terminate(ctx)
 
 	broker, err := container.KafkaSeedBroker(ctx)
-	require.NoError(t, broker)
+	require.NoError(t, err)
 	require.NotEmpty(t, broker)
 
 	t.Logf("Redpanda broker: %s", broker)
