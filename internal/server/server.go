@@ -25,6 +25,7 @@ type Server struct {
 	port           int
 	logger         *slog.Logger
 	outboxListener *poller.OutboxListener
+	outboxCancel   context.CancelFunc
 }
 
 func New(port int, store *repository.Store, env string, logger *slog.Logger, opts ...grpc.ServerOption) *Server {
@@ -60,8 +61,6 @@ func (s *Server) SetOutboxListener(listener *poller.OutboxListener) {
 }
 
 func (s *Server) Start() (net.Listener, error) {
-	ctx := context.Background()
-
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen on port %d: %w", s.port, err)
@@ -76,8 +75,12 @@ func (s *Server) Start() (net.Listener, error) {
 
 	if s.outboxListener != nil {
 		s.logger.Info("starting outbox listener")
+		ctx, cancel := context.WithCancel(context.Background())
+		s.outboxCancel = cancel
 		if err := s.outboxListener.Start(ctx); err != nil {
 			s.logger.Error("failed to start outbox listener", "error", err)
+			cancel()
+			s.outboxCancel = nil
 		}
 	}
 
@@ -86,6 +89,10 @@ func (s *Server) Start() (net.Listener, error) {
 
 func (s *Server) GracefulStop() {
 	s.logger.Info("shutting down gRPC server gracefully")
+	if s.outboxCancel != nil {
+		s.logger.Info("canceling outbox listener context")
+		s.outboxCancel()
+	}
 	if s.outboxListener != nil {
 		s.logger.Info("stopping outbox listener")
 		s.outboxListener.Stop()
@@ -95,6 +102,10 @@ func (s *Server) GracefulStop() {
 
 func (s *Server) Stop() {
 	s.logger.Info("stopping gRPC server")
+	if s.outboxCancel != nil {
+		s.logger.Info("canceling outbox listener context")
+		s.outboxCancel()
+	}
 	if s.outboxListener != nil {
 		s.logger.Info("stopping outbox listener")
 		s.outboxListener.Stop()
