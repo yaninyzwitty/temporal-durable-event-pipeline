@@ -96,6 +96,9 @@ func TestIntegration_OutboxListener_WithRedpanda(t *testing.T) {
 	listenerCtx, cancelListener := context.WithCancel(ctx)
 	err = outboxListener.Start(listenerCtx)
 	require.NoError(t, err)
+
+	time.Sleep(100 * time.Millisecond)
+
 	defer func() {
 		cancelListener()
 		outboxListener.Stop()

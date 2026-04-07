@@ -74,6 +74,10 @@ func NewOutboxListener(
 }
 
 func (l *OutboxListener) Start(ctx context.Context) error {
+	if err := l.listener.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start listener: %w", err)
+	}
+
 	l.logger.Info("starting outbox listener")
 
 	runCtx, cancel := context.WithCancel(ctx)
