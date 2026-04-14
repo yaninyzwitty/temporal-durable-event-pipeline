@@ -55,7 +55,7 @@ services:
       - 19092:19092
       - 19644:9644
     healthcheck:
-      test: ["CMD", "rpk", "cluster", "health", "--brokers", "localhost:19092"]
+      test: ["CMD", "rpk", "cluster", "health", "-X", "brokers=localhost:19092"]
       interval: 10s
       timeout: 5s
       retries: 5
