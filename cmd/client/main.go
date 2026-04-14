@@ -314,65 +314,57 @@ func main() {
 		return
 	}
 
-	log.Info("=== CreateEvent ===")
+	log.Info("=== CreateEvent (triggers outbox pattern) ===")
 	eventCreateResp, err := eventClient.CreateEvent(ctx, &eventv1.CreateEventRequest{
 		EventType: "user.signup",
 		Payload:   payload,
 	})
 	if err != nil {
 		log.Error("CreateEvent failed", "error", err)
-	} else {
-		log.Info("CreateEvent succeeded", "event", formatEvent(eventCreateResp.Event))
+		os.Exit(1)
 	}
+	log.Info("CreateEvent succeeded", "event", formatEvent(eventCreateResp.Event))
 
-	log.Info("=== GetEvent ===")
-	if eventCreateResp != nil && eventCreateResp.Event != nil {
-		getResp, err := eventClient.GetEvent(ctx, &eventv1.GetEventRequest{
+	log.Info("Waiting for outbox to process event (check Redpanda console at http://localhost:8080)...")
+
+	pollCtx, pollCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer pollCancel()
+
+	var finalEvent *eventv1.Event
+	for pollCtx.Err() == nil {
+		getResp, err := eventClient.GetEvent(pollCtx, &eventv1.GetEventRequest{
 			Id: eventCreateResp.Event.Id,
 		})
 		if err != nil {
 			log.Error("GetEvent failed", "error", err)
-		} else {
-			log.Info("GetEvent succeeded", "event", formatEvent(getResp.Event))
+			time.Sleep(500 * time.Millisecond)
+			continue
 		}
+
+		finalEvent = getResp.Event
+		log.Debug("Poll check", "status", finalEvent.StatusV2)
+
+		if finalEvent.StatusV2 == eventv1.EventStatus_EVENT_STATUS_COMPLETED {
+			log.Info("SUCCESS: Event published to Redpanda and status updated to COMPLETED",
+				"event", formatEvent(finalEvent))
+			break
+		}
+
+		if finalEvent.StatusV2 == eventv1.EventStatus_EVENT_STATUS_FAILED {
+			log.Error("FAILED: Event marked as failed", "event", formatEvent(finalEvent))
+			os.Exit(1)
+		}
+
+		time.Sleep(500 * time.Millisecond)
 	}
 
-	log.Info("=== ListEvents ===")
-	listResp, err := eventClient.ListEvents(ctx, &eventv1.ListEventsRequest{
-		Limit:  10,
-		Offset: 0,
-	})
-	if err != nil {
-		log.Error("ListEvents failed", "error", err)
-	} else {
-		log.Info("ListEvents succeeded", "count", len(listResp.Events))
-		for _, e := range listResp.Events {
-			log.Info("event", "data", formatEvent(e))
-		}
+	if pollCtx.Err() != nil {
+		log.Error("Timeout waiting for event processing", "lastEvent", formatEvent(finalEvent))
+		os.Exit(1)
 	}
 
-	log.Info("=== PollPendingEvents ===")
-	pollResp, err := eventClient.PollPendingEvents(ctx, &eventv1.PollPendingEventsRequest{
-		Limit: 10,
-	})
-	if err != nil {
-		log.Error("PollPendingEvents failed", "error", err)
-	} else {
-		log.Info("PollPendingEvents succeeded", "count", len(pollResp.Events))
-	}
-
-	log.Info("=== UpdateEventStatus ===")
-	if eventCreateResp != nil && eventCreateResp.Event != nil {
-		updateResp, err := eventClient.UpdateEventStatus(ctx, &eventv1.UpdateEventStatusRequest{
-			Id:       eventCreateResp.Event.Id,
-			StatusV2: eventv1.EventStatus_EVENT_STATUS_COMPLETED,
-		})
-		if err != nil {
-			log.Error("UpdateEventStatus failed", "error", err)
-		} else {
-			log.Info("UpdateEventStatus succeeded", "event", formatEvent(updateResp.Event))
-		}
-	}
+	log.Info("=== Verify: Check topic in Redpanda Console ===")
+	log.Info("Open http://localhost:8080 to verify topic 'temporal-pipeline.user.signup' has messages")
 }
 
 func formatUser(u *userv1.User) string {
